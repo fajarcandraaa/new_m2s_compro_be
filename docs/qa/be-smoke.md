@@ -201,3 +201,13 @@ process exits cleanly.
 
   Failed mutations (4xx) fire nothing. Lead, user and media mutations fire nothing, as the contract specifies.
 - **Client IP.** With `LOG_LEVEL=debug` the IP line reads `"xff":["203.0.113.1"],"remote_addr":"127.0.0.1:…","client_ip":"203.0.113.1"` (`TRUSTED_PROXY_HOPS=1`).
+
+## Re-run for contract v1.1 (FAQ items)
+
+Date: 2026-10-15. Branch `feat/seo-geo`. Fresh database, same setup without the fake FE. `scripts/smoke.sh` now
+also asserts response bodies with `jq` (rows with method `jq`): the seeded services carry FAQs, `faqs` defaults to
+`[]` on services and articles when omitted, FAQ text is trimmed and HTML-stripped, and more than 10 items or an
+HTML-only question returns 422 on `faqs` / `faqs.1.question`. Result: `PASS=136 FAIL=0`.
+
+Upgrade path: a database migrated and seeded by the v1.0 binary, then started with the v1.1 binary, logs
+`seed: service faqs backfilled count=5`; the next restart logs no backfill.

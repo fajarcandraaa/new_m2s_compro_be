@@ -23,6 +23,7 @@ Companion to `api/openapi.yaml`. Column names are snake_case; the API maps them 
 |---|---|---|
 | `services.points`, `services.systems` (string lists) | `jsonb` array of strings | Always read and written as a whole with the parent, never queried on their own, and order matters. A child table would only add joins and diff logic. |
 | `services.deliverables` (`[{title, body}]`) | `jsonb` array of objects | Same reasons. |
+| `services.faqs`, `articles.faqs` (`[{question, answer}]`, max 10, contract v1.1) | `jsonb` array of objects | Same reasons: read and replaced as a whole, order matters. Plain text: trimmed and stripped of HTML (bluemonday strict) in Go before writing. |
 | `case_studies.metrics` (exactly 2 `{value,label}`), `scope`, `initial_conditions`, `risks`, `approach`, `solutions`, `impacts` | `jsonb` arrays | The CMS edits each list as one textarea (one point per line), so it is replaced as a whole on every save. |
 | `service_packages` | **child table** | Packages are named entities with their own price, highlight flag, sort order and feature list. They are likely to be referenced later (promo per package, per-package CTA). On a service PUT they are replaced as a whole in the same transaction (`DELETE ... WHERE service_id = $1` then INSERT). `features` inside a package is `jsonb`. |
 | Article tags | **join table** `article_tags` (with `position`) | We filter by tag (`?tag=`), count per tag and find related articles. All of that needs relational queries. `position` keeps the editor's order, and the first tag is the primary label. |
@@ -81,6 +82,7 @@ The row is created by the seed. Updates use `UPDATE settings ... WHERE id = 1`.
 | systems | jsonb | NOT NULL DEFAULT '[]', array CHECK |
 | seo_title, seo_description, og_image_url | text | NULL |
 | created_at, updated_at | timestamptz | NOT NULL DEFAULT now() |
+| faqs | jsonb | NOT NULL DEFAULT '[]', array CHECK. `[{question, answer}]` in display order (added in `00009_faqs.sql`) |
 
 Indexes: `services_status_sort_idx (status, sort_order)`.
 Reorder (`PUT /admin/services/order`) runs one transaction: `UPDATE services SET sort_order = x.ord FROM unnest($1::uuid[]) WITH ORDINALITY AS x(id, ord) WHERE services.id = x.id`. The handler first checks that the id set matches the table exactly; otherwise it returns 422. `sort_order` is deliberately not UNIQUE, so reordering needs no deferred constraints.
@@ -151,6 +153,7 @@ It is not a DB constraint, because an exact-count rule cannot be expressed as on
 | published_at | timestamptz | NULL. `CHECK (status = 'draft' OR published_at IS NOT NULL)`. On publish the app sets `now()` if it is null. |
 | seo_title, seo_description, og_image_url | text | NULL |
 | created_at, updated_at | timestamptz | NOT NULL DEFAULT now() |
+| faqs | jsonb | NOT NULL DEFAULT '[]', array CHECK. `[{question, answer}]` in display order (added in `00009_faqs.sql`) |
 
 Indexes:
 - `articles_public_idx (published_at DESC) WHERE status = 'published'` for the public list
@@ -259,10 +262,12 @@ Indexes: `leads_created_idx (created_at DESC)`, `leads_status_created_idx (statu
 | 6 | `00006_promos.sql` | `promos` (FK to services) + indexes |
 | 7 | `00007_testimonials_client_logos.sql` | `testimonials`, `client_logos` + indexes |
 | 8 | `00008_leads.sql` | `leads` + indexes |
+| 9 | `00009_faqs.sql` | `services.faqs`, `articles.faqs` (`jsonb`, default `[]`, array CHECK); down drops both columns |
 
 Down migrations drop the tables in reverse order. Seed data is **not** a migration. It is Go code (`internal/seed`) that runs after migrations, in one transaction:
 - admin user: only if `users` is empty
 - settings: only if no row exists
 - services + packages, case studies, tags + articles: only if the respective table is empty
+- service FAQs from `seed.json`: on a database that already has services, only into rows (matched by slug) whose `faqs` is still `[]`. Admin edits are never overwritten; the catch is that an admin who deliberately empties a seeded service's FAQs gets the seed FAQs back on the next start.
 
 All seeded content gets status `published`.

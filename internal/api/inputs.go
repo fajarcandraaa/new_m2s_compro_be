@@ -42,6 +42,28 @@ func checkTitleSlug(v *domain.Validator, slug, title string, creating bool) {
 	}
 }
 
+// FaqInput is one element of ServiceInput.faqs / ArticleInput.faqs.
+type FaqInput struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+// checkFaqs validates FAQ items (max 10, order kept). Both fields are plain
+// text: markup is stripped before trimming, so a value that is only HTML
+// becomes "" and fails as required. A missing or null list is [].
+func checkFaqs(v *domain.Validator, in []FaqInput) []domain.Faq {
+	out := make([]domain.Faq, len(in))
+	if !v.MaxItems("faqs", len(in), 10) {
+		return out
+	}
+	for i, f := range in {
+		out[i] = domain.Faq{Question: domain.Trim(domain.StripHTML(f.Question)), Answer: domain.Trim(domain.StripHTML(f.Answer))}
+		v.Str(fmt.Sprintf("faqs.%d.question", i), out[i].Question, true, 200)
+		v.Str(fmt.Sprintf("faqs.%d.answer", i), out[i].Answer, true, 1000)
+	}
+	return out
+}
+
 // ---- settings ----
 
 type SettingsInput struct {
@@ -160,6 +182,7 @@ type ServiceInput struct {
 	Deliverables []DeliverableInput `json:"deliverables"`
 	Systems      []string           `json:"systems"`
 	Packages     []PackageInput     `json:"packages"`
+	Faqs         []FaqInput         `json:"faqs"`
 	Seo          SeoInput           `json:"seo"`
 	Status       string             `json:"status"`
 }
@@ -215,6 +238,7 @@ func (in *ServiceInput) Validate(creating bool) (*domain.Service, error) {
 			v.Add("packages", "Hanya satu paket yang boleh ditandai unggulan.")
 		}
 	}
+	s.Faqs = checkFaqs(v, in.Faqs)
 	v.Seo(s.Seo)
 	v.Enum("status", s.Status, domain.StatusDraft, domain.StatusPublished)
 	return s, v.Err()
@@ -305,16 +329,17 @@ func (in *CaseStudyInput) Validate(creating bool) (*domain.CaseStudy, error) {
 // ---- articles ----
 
 type ArticleInput struct {
-	Title         string   `json:"title"`
-	Slug          string   `json:"slug"`
-	Excerpt       string   `json:"excerpt"`
-	ContentHTML   string   `json:"contentHtml"`
-	Status        string   `json:"status"`
-	PublishedAt   *string  `json:"publishedAt"`
-	Tags          []string `json:"tags"`
-	CoverImageURL *string  `json:"coverImageUrl"`
-	Author        string   `json:"author"`
-	Seo           SeoInput `json:"seo"`
+	Title         string     `json:"title"`
+	Slug          string     `json:"slug"`
+	Excerpt       string     `json:"excerpt"`
+	ContentHTML   string     `json:"contentHtml"`
+	Status        string     `json:"status"`
+	PublishedAt   *string    `json:"publishedAt"`
+	Tags          []string   `json:"tags"`
+	CoverImageURL *string    `json:"coverImageUrl"`
+	Author        string     `json:"author"`
+	Faqs          []FaqInput `json:"faqs"`
+	Seo           SeoInput   `json:"seo"`
 }
 
 // Validate normalises the article: sanitises HTML, computes readMinutes,
@@ -380,6 +405,7 @@ func (in *ArticleInput) Validate(creating bool, now time.Time) (*domain.Article,
 	}
 	v.MediaURL("coverImageUrl", a.CoverImageURL, false)
 	v.Str("author", a.Author, false, 120)
+	a.Faqs = checkFaqs(v, in.Faqs)
 	v.Seo(a.Seo)
 	return a, v.Err()
 }

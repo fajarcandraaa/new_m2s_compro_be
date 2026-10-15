@@ -20,7 +20,7 @@ browser ──► FE (Next.js, :3000) ──rewrite /api/v1/*, /uploads/*──�
 ```
 cmd/api/main.go            wiring: config → db pool → migrate → seed → router → http.Server (graceful shutdown on SIGTERM)
 assets.go                  package compro (module root): //go:embed migrations/*.sql docs/content/*.json
-migrations/                00001_users.sql … 00008_leads.sql (goose, see db-schema.md)
+migrations/                00001_users.sql … 00009_faqs.sql (goose, see db-schema.md)
 internal/config            env parsing + validation (fails fast on missing JWT_SECRET etc.)
 internal/db                pgxpool setup, goose runner (goose.SetBaseFS + "postgres" dialect via pgx stdlib)
 internal/seed              idempotent seed from embedded JSON + ADMIN_* env
@@ -110,6 +110,7 @@ Handlers return `error`. A single adapter maps typed errors to the envelope:
   - Article HTML from `articles.json` goes through the same bluemonday policy as CMS saves.
   - Times are converted to UTC.
   - Tag slugs are derived with `domain.Slugify`.
+  - Service FAQs (contract v1.1) are also backfilled on an existing database, but only into services whose `faqs` is still `[]`, so admin edits are never overwritten.
 - The admin user is created from `ADMIN_EMAIL`, `ADMIN_PASSWORD` and `ADMIN_NAME`, and only when `users` is empty. If either email or password is unset, or the password is outside 10–64 characters or over 72 bytes, startup logs a warning and skips creating it. Seed records are run through the same `Validate()` as CMS input before insert.
 
 ## 6. Media

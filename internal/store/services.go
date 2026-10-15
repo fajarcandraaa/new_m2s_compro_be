@@ -10,18 +10,19 @@ import (
 )
 
 const serviceCols = `id, slug, audience, status, sort_order, eyebrow, title, tagline, summary,
-	price_label, price_value, audience_text, points, deliverables, systems, seo_title,
+	price_label, price_value, audience_text, points, deliverables, systems, faqs, seo_title,
 	seo_description, og_image_url, created_at, updated_at`
 
 func scanService(row pgx.Row) (domain.Service, error) {
 	var v domain.Service
 	err := row.Scan(&v.ID, &v.Slug, &v.Audience, &v.Status, &v.SortOrder, &v.Eyebrow, &v.Title,
 		&v.Tagline, &v.Summary, &v.PriceLabel, &v.PriceValue, &v.AudienceText, &v.Points,
-		&v.Deliverables, &v.Systems, &v.Seo.Title, &v.Seo.Description, &v.Seo.OgImageURL,
+		&v.Deliverables, &v.Systems, &v.Faqs, &v.Seo.Title, &v.Seo.Description, &v.Seo.OgImageURL,
 		&v.CreatedAt, &v.UpdatedAt)
 	v.Points = nonNil(v.Points)
 	v.Deliverables = nonNil(v.Deliverables)
 	v.Systems = nonNil(v.Systems)
+	v.Faqs = nonNil(v.Faqs)
 	v.Packages = []domain.ServicePackage{}
 	return v, err
 }
@@ -153,12 +154,12 @@ func (s *Store) SaveService(ctx context.Context, id string, v *domain.Service) (
 			}
 			err = tx.db.QueryRow(ctx, `INSERT INTO services (slug, audience, status, sort_order, eyebrow,
 				title, tagline, summary, price_label, price_value, audience_text, points, deliverables,
-				systems, seo_title, seo_description, og_image_url)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+				systems, seo_title, seo_description, og_image_url, faqs)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 				RETURNING id::text`,
 				slug, v.Audience, v.Status, order, v.Eyebrow, v.Title, v.Tagline, v.Summary, v.PriceLabel,
 				v.PriceValue, v.AudienceText, nonNil(v.Points), nonNil(v.Deliverables), nonNil(v.Systems),
-				v.Seo.Title, v.Seo.Description, v.Seo.OgImageURL).Scan(&savedID)
+				v.Seo.Title, v.Seo.Description, v.Seo.OgImageURL, nonNil(v.Faqs)).Scan(&savedID)
 			if err != nil {
 				return fmt.Errorf("store: insert service: %w", err)
 			}
@@ -166,10 +167,10 @@ func (s *Store) SaveService(ctx context.Context, id string, v *domain.Service) (
 			tag, err := tx.db.Exec(ctx, `UPDATE services SET slug = $2, audience = $3, status = $4,
 				eyebrow = $5, title = $6, tagline = $7, summary = $8, price_label = $9, price_value = $10,
 				audience_text = $11, points = $12, deliverables = $13, systems = $14, seo_title = $15,
-				seo_description = $16, og_image_url = $17, updated_at = now() WHERE id = $1`,
+				seo_description = $16, og_image_url = $17, faqs = $18, updated_at = now() WHERE id = $1`,
 				id, slug, v.Audience, v.Status, v.Eyebrow, v.Title, v.Tagline, v.Summary, v.PriceLabel,
 				v.PriceValue, v.AudienceText, nonNil(v.Points), nonNil(v.Deliverables), nonNil(v.Systems),
-				v.Seo.Title, v.Seo.Description, v.Seo.OgImageURL)
+				v.Seo.Title, v.Seo.Description, v.Seo.OgImageURL, nonNil(v.Faqs))
 			if err != nil {
 				return fmt.Errorf("store: update service: %w", err)
 			}
@@ -196,6 +197,18 @@ func (s *Store) SaveService(ctx context.Context, id string, v *domain.Service) (
 		return nil, err
 	}
 	return s.GetService(ctx, savedID)
+}
+
+// SetServiceFaqsIfEmpty sets the FAQs of the service with slug only while
+// its faqs are still `[]`, so admin edits are never overwritten (seed).
+// It reports whether a row was updated.
+func (s *Store) SetServiceFaqsIfEmpty(ctx context.Context, slug string, faqs []domain.Faq) (bool, error) {
+	tag, err := s.db.Exec(ctx, `UPDATE services SET faqs = $2, updated_at = now()
+		WHERE slug = $1 AND faqs = '[]'::jsonb`, slug, nonNil(faqs))
+	if err != nil {
+		return false, fmt.Errorf("store: set service faqs: %w", err)
+	}
+	return tag.RowsAffected() > 0, nil
 }
 
 // DeleteService deletes a service (packages cascade, promos set null).
