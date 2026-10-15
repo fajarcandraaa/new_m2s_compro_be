@@ -119,3 +119,11 @@ func JSONNotFound(w http.ResponseWriter, r *http.Request) { WriteError(w, r, Not
 func JSONMethodNotAllowed(w http.ResponseWriter, r *http.Request) {
 	WriteError(w, r, MethodNotAllowed())
 }
+
+// NoStore marks responses as non-cacheable (admin and auth routes).
+func NoStore(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Cache-Control", "no-store")
+		next.ServeHTTP(w, r)
+	})
+}

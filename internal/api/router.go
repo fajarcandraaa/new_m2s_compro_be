@@ -102,6 +102,7 @@ func NewRouter(d Deps) http.Handler {
 
 		// Auth (CSRF before anything else).
 		r.Route("/auth", func(r chi.Router) {
+			r.Use(httpx.NoStore)
 			r.Use(auth.CSRF)
 			r.Post("/login", h(s.login))
 			r.Post("/logout", h(s.logout))
@@ -110,6 +111,7 @@ func NewRouter(d Deps) http.Handler {
 
 		// Admin: CSRF → session → role.
 		r.Route("/admin", func(r chi.Router) {
+			r.Use(httpx.NoStore)
 			r.Use(auth.CSRF)
 			r.Use(s.auth.RequireSession)
 			adminOnly := auth.RequireRole(domain.RoleAdmin)
