@@ -3,15 +3,19 @@
 openapi: 3.1.0
 info:
   title: Mind2Screen Company Profile API
-  version: 1.0.0
+  version: 1.1.0
   description: |
     REST API for the Mind2Screen company profile (public site + CMS).
+
+    ## Changelog
+    - **1.1.0** (additive, non-breaking): FAQ items for SEO/GEO (FAQPage JSON-LD). New schema `FaqItem`; `faqs` (max 10) is always present on `Service`, `ServiceAdmin`, `Article` and `ArticleAdmin` (`[]` when none) and optional on `ServiceInput` / `ArticleInput` (omitted → `[]`). List/summary schemas are unchanged.
+    - **1.0.0**: initial frozen contract (`contract-v1.0`).
 
     ## Conventions
     - Base path `/api/v1` (browser reaches it same-origin through the Next.js rewrite of `/api/*`; Server Components call `BACKEND_URL` directly). `GET /healthz` lives at the root.
     - JSON, camelCase. Times are returned as RFC3339 in UTC (`2026-10-15T03:30:00Z`); inputs accept RFC3339 with any offset. Business dates are interpreted in Asia/Jakarta (WIB) and the FE formats all dates in WIB.
     - Single item: `{ "data": {...} }`. List: `{ "data": [...], "meta": { "page", "pageSize", "total" } }`. Unpaginated lists still carry `meta`.
-    - Errors: `{ "error": { "code", "message", "fields"? } }` — see `components/schemas/Error` for codes. `fields` keys are dot paths with numeric indices (`packages.0.priceValue`, `seo.title`, `metrics.1.label`, `initialConditions.2`). Unknown routes → JSON 404 `not_found`; wrong method → JSON 405 `method_not_allowed`.
+    - Errors: `{ "error": { "code", "message", "fields"? } }` — see `components/schemas/Error` for codes. `fields` keys are dot paths with numeric indices (`packages.0.priceValue`, `seo.title`, `metrics.1.label`, `initialConditions.2`, `faqs.2.question`). Unknown routes → JSON 404 `not_found`; wrong method → JSON 405 `method_not_allowed`.
     - Write semantics:
       - **POST / PUT = full object.** A missing property is treated as its zero value (`null` / `false` / `""` / `[]`). Clients always send the complete object (the generated types enforce it); required-ness is enforced by FE types, not by a BE 422 for missing keys.
       - **PATCH = partial** (`LeadPatchInput`, `SettingsTogglesInput`). An absent key means unchanged; `null` clears a nullable field; `{}` → 422 `validation_error`.
@@ -228,6 +232,17 @@ paths:
                   - ERP Internal
                   - Dashboard KPI
                   packages: []
+                  faqs:
+                  - question: Apa saja yang termasuk dalam layanan Custom Software Development?
+                    answer: Mulai dari discovery dan pemetaan proses bisnis bersama stakeholder, perancangan sistem, pengembangan per modul, integrasi dengan sistem yang sudah ada, sampai dokumentasi teknis dan knowledge transfer ke tim internal Anda. Sistem yang biasa Kami bangun antara lain HRIS, DMS, ERP internal, approval workflow, portal internal, dan dashboard KPI, semuanya disesuaikan dengan proses bisnis perusahaan Anda, bukan solusi generik.
+                  - question: Bagaimana cara menentukan biaya pengembangan sistem?
+                    answer: Kami memakai dua model kerja. BOS (Based on Scope) memakai harga tetap per proyek dengan ruang lingkup yang dikunci di awal kontrak, cocok jika kebutuhan sudah terdokumentasi. BOR (Based on Request) dibayar sesuai waktu kerja yang dipakai dan ruang lingkupnya bisa berubah tiap sprint, cocok untuk MVP atau pengembangan berkelanjutan. Model yang paling cocok Kami rekomendasikan setelah sesi discovery.
+                  - question: Berapa lama waktu yang dibutuhkan untuk membangun sistem internal?
+                    answer: Tergantung ruang lingkup dan jumlah modul, sehingga durasi baru bisa diperkirakan dengan jujur setelah discovery, ketika alur kerja dan prioritas fitur sudah jelas. Karena sistem dibangun per modul, modul yang paling mendesak bisa dipakai lebih dulu sementara modul berikutnya dikembangkan bertahap.
+                  - question: Apakah ada pendampingan setelah sistem mulai dipakai?
+                    answer: Ada. Setelah go-live Kami mendampingi masa stabilisasi, melatih tim internal, dan bisa melanjutkan pengembangan modul berikutnya. Bentuk dan durasi dukungan disepakati di awal sesuai model kerja yang dipilih, supaya tim Anda tahu persis apa yang ditangani dan ke mana harus melapor jika ada kendala.
+                  - question: Siapa yang memiliki data dan source code sistem?
+                    answer: Data operasional tetap milik perusahaan Anda. Kepemilikan source code dan akses ke server disepakati secara tertulis di kontrak sebelum pengembangan dimulai. Dokumentasi teknis dan knowledge transfer disiapkan supaya tim internal Anda bisa merawat dan mengembangkan sistem tanpa bergantung pada satu orang.
                   seo:
                     title: null
                     description: null
@@ -259,6 +274,17 @@ paths:
                     body: Evaluasi produk yang sudah ada beserta daftar perbaikan berdasarkan prioritas.
                   systems: []
                   packages: []
+                  faqs:
+                  - question: Apa saja yang dikerjakan dalam layanan UI/UX Design?
+                    answer: User research dan persona, wireframe serta prototipe interaktif, design system, dan high-fidelity mockup yang siap diserahkan ke developer. Untuk produk yang sudah berjalan, Kami juga melakukan UX audit beserta daftar perbaikan berdasarkan prioritas.
+                  - question: Kenapa perlu riset pengguna sebelum mendesain?
+                    answer: Karena desain yang terlihat cantik belum tentu dipakai. Lewat wawancara dan observasi pengguna nyata, Kami memahami konteks kerja mereka lebih dulu, lalu memvalidasi alur lewat wireframe dan prototipe sebelum masuk desain visual. Dengan begitu, perubahan besar terjadi di tahap desain, bukan setelah aplikasi selesai dibangun.
+                  - question: Bagaimana sistem biaya layanan UI/UX Design?
+                    answer: Layanan ini dikerjakan per proyek. Biaya ditentukan dari ruang lingkup, misalnya jumlah alur dan layar, kedalaman riset pengguna, dan apakah dibutuhkan design system lengkap. Rinciannya Kami sampaikan setelah memahami kebutuhan Anda di sesi diskusi.
+                  - question: Apakah aplikasi yang sudah berjalan bisa diaudit dan diperbaiki desainnya?
+                    answer: Bisa. UX audit mengevaluasi produk yang sudah ada, termasuk bagian yang sering dikeluhkan pengguna, lalu menghasilkan daftar perbaikan berdasarkan prioritas. Perbaikan bisa dikerjakan bertahap tanpa harus mendesain ulang seluruh aplikasi.
+                  - question: Apakah hasil desain bisa langsung dipakai oleh tim developer kami?
+                    answer: Bisa. Hasil akhirnya berupa design system dan high-fidelity mockup dengan komponen visual yang konsisten, sehingga siap diserahkan ke developer internal Anda maupun vendor lain. Jika diperlukan, pengembangannya juga bisa dilanjutkan bersama tim Kami.
                   seo:
                     title: null
                     description: null
@@ -293,6 +319,17 @@ paths:
                   - ETL
                   - Business Intelligence
                   packages: []
+                  faqs:
+                  - question: Apa yang dikerjakan dalam layanan Data Analysis & Processing?
+                    answer: Kami memulai dengan data audit dan gap analysis untuk memetakan data yang tersedia dibandingkan data yang dibutuhkan untuk mengambil keputusan. Setelah itu data dari berbagai sumber dikonsolidasikan lewat ETL pipeline, lalu disajikan dalam dashboard KPI, business intelligence, dan laporan yang disesuaikan untuk kebutuhan eksekutif maupun operasional.
+                  - question: Data kami tersebar di spreadsheet dan beberapa aplikasi. Apakah bisa disatukan?
+                    answer: Bisa. Kondisi seperti ini justru yang paling sering Kami temui. ETL pipeline menarik data dari spreadsheet, database, dan aplikasi yang Anda pakai ke satu tempat yang bisa dipercaya, sehingga laporan bulanan tidak perlu lagi dirangkum manual.
+                  - question: Bagaimana model kerja dan biayanya?
+                    answer: Tersedia per proyek atau retainer. Per proyek cocok untuk pekerjaan yang jelas batasnya, misalnya membangun pipeline data dan dashboard pertama. Retainer cocok jika Anda butuh pendampingan berkelanjutan, seperti penambahan sumber data, laporan baru, dan perawatan pipeline. Biaya ditentukan dari jumlah sumber data dan kompleksitas laporan.
+                  - question: Apakah dashboard diperbarui secara otomatis?
+                    answer: Ya. Setelah pipeline berjalan, KPI di dashboard diperbarui otomatis dari sumber datanya, sehingga manajemen dan tiap divisi melihat angka yang sama tanpa menunggu rekap manual.
+                  - question: Bagaimana keamanan data perusahaan kami selama proyek?
+                    answer: Akses ke data hanya diberikan sesuai kebutuhan pekerjaan dan disepakati bersama di awal proyek. Data tetap milik perusahaan Anda dan hanya diolah untuk tujuan proyek. Jika perusahaan Anda memiliki kebijakan keamanan atau perjanjian kerahasiaan sendiri, Kami mengikuti kebijakan tersebut.
                   seo:
                     title: null
                     description: null
@@ -324,6 +361,17 @@ paths:
                     body: Membekali tim internal supaya bisa mengambil keputusan teknologi sendiri.
                   systems: []
                   packages: []
+                  faqs:
+                  - question: Kapan perusahaan membutuhkan IT consultant?
+                    answer: Biasanya sebelum berinvestasi di sistem baru, saat harus memilih di antara beberapa vendor atau arsitektur, atau ketika sistem yang berjalan terasa lambat, mahal, dan sulit dikembangkan. Konsultan memberi perspektif independen supaya keputusan teknologi diambil berdasarkan kebutuhan bisnis, bukan sekadar tawaran vendor.
+                  - question: Apa saja cakupan layanan IT Consultant?
+                    answer: IT audit dan technology assessment terhadap sistem, infrastruktur, dan keamanan yang berjalan saat ini; roadmap digitalisasi bertahap yang realistis dengan anggaran; evaluasi dan seleksi vendor secara objektif; serta pendampingan dan capacity building supaya tim internal bisa mengambil keputusan teknologi sendiri.
+                  - question: Apa hasil akhir dari IT audit?
+                    answer: Laporan kondisi sistem, infrastruktur, dan keamanan yang berjalan saat ini, beserta risiko yang ditemukan dan rekomendasi perbaikan berdasarkan prioritas. Hasil audit ini juga menjadi dasar penyusunan roadmap digitalisasi.
+                  - question: Bagaimana sistem biaya konsultasi?
+                    answer: Konsultasi bisa per sesi untuk kebutuhan yang spesifik, misalnya review arsitektur atau evaluasi satu vendor, atau retainer untuk pendampingan berkelanjutan selama proses digitalisasi. Ruang lingkup dan bentuk laporan disepakati di awal.
+                  - question: Apakah rekomendasi vendor dari Mind2Screen bersifat objektif?
+                    answer: Ya. Vendor dan tools dibandingkan dengan kriteria yang disepakati bersama di awal, berdasarkan kebutuhan bisnis dan anggaran Anda. Jika salah satu opsinya adalah dikerjakan oleh tim Kami sendiri, hal itu Kami sampaikan secara terbuka supaya Anda tetap bisa menilai secara adil.
                   seo:
                     title: null
                     description: null
@@ -396,6 +444,17 @@ paths:
                     - Dukungan prioritas
                     highlighted: false
                     sortOrder: 4
+                  faqs:
+                  - question: Berapa biaya pembuatan website?
+                    answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+                  - question: Apa saja yang sudah termasuk dalam harga?
+                    answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+                  - question: Apakah saya bisa mengelola konten website sendiri?
+                    answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+                  - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                    answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+                  - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                    answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
                   seo:
                     title: null
                     description: null
@@ -499,6 +558,17 @@ paths:
                     - Dukungan prioritas
                     highlighted: false
                     sortOrder: 4
+                  faqs:
+                  - question: Berapa biaya pembuatan website?
+                    answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+                  - question: Apa saja yang sudah termasuk dalam harga?
+                    answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+                  - question: Apakah saya bisa mengelola konten website sendiri?
+                    answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+                  - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                    answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+                  - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                    answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
                   seo:
                     title: null
                     description: null
@@ -949,6 +1019,11 @@ paths:
                     <p>Bukan sebagai pengganti keputusan.</p>
                     <p>Karena pada akhirnya, teknologi terbaik tetap membutuhkan manusia yang tahu ke mana harus melangkah.</p>
                     <p>Artikel ini dibuat untuk membantu masyarakat memahami teknologi dengan lebih bijak. Jika Anda membutuhkan konsultasi pengembangan website atau solusi digital untuk bisnis Anda, tim Mind2Screen siap membantu.</p>
+                  faqs:
+                  - question: Apakah website buatan AI bisa langsung dipakai untuk bisnis?
+                    answer: Untuk kebutuhan sederhana, AI bisa sangat membantu. Namun website untuk bisnis serius tetap membutuhkan pemahaman tujuan, target pelanggan, dan alur pengguna yang jelas, dan hal itu tidak bisa ditebak AI dari satu prompt.
+                  - question: Bagaimana cara memakai AI dengan bijak saat membuat website?
+                    answer: Pahami kebutuhan Anda terlebih dahulu, gunakan AI sebagai alat bantu, lalu uji website dari sudut pandang pengguna sebelum diluncurkan.
                   seo:
                     title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semuda
                     description: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah
@@ -1701,6 +1776,17 @@ paths:
                   - ERP Internal
                   - Dashboard KPI
                   packages: []
+                  faqs:
+                  - question: Apa saja yang termasuk dalam layanan Custom Software Development?
+                    answer: Mulai dari discovery dan pemetaan proses bisnis bersama stakeholder, perancangan sistem, pengembangan per modul, integrasi dengan sistem yang sudah ada, sampai dokumentasi teknis dan knowledge transfer ke tim internal Anda. Sistem yang biasa Kami bangun antara lain HRIS, DMS, ERP internal, approval workflow, portal internal, dan dashboard KPI, semuanya disesuaikan dengan proses bisnis perusahaan Anda, bukan solusi generik.
+                  - question: Bagaimana cara menentukan biaya pengembangan sistem?
+                    answer: Kami memakai dua model kerja. BOS (Based on Scope) memakai harga tetap per proyek dengan ruang lingkup yang dikunci di awal kontrak, cocok jika kebutuhan sudah terdokumentasi. BOR (Based on Request) dibayar sesuai waktu kerja yang dipakai dan ruang lingkupnya bisa berubah tiap sprint, cocok untuk MVP atau pengembangan berkelanjutan. Model yang paling cocok Kami rekomendasikan setelah sesi discovery.
+                  - question: Berapa lama waktu yang dibutuhkan untuk membangun sistem internal?
+                    answer: Tergantung ruang lingkup dan jumlah modul, sehingga durasi baru bisa diperkirakan dengan jujur setelah discovery, ketika alur kerja dan prioritas fitur sudah jelas. Karena sistem dibangun per modul, modul yang paling mendesak bisa dipakai lebih dulu sementara modul berikutnya dikembangkan bertahap.
+                  - question: Apakah ada pendampingan setelah sistem mulai dipakai?
+                    answer: Ada. Setelah go-live Kami mendampingi masa stabilisasi, melatih tim internal, dan bisa melanjutkan pengembangan modul berikutnya. Bentuk dan durasi dukungan disepakati di awal sesuai model kerja yang dipilih, supaya tim Anda tahu persis apa yang ditangani dan ke mana harus melapor jika ada kendala.
+                  - question: Siapa yang memiliki data dan source code sistem?
+                    answer: Data operasional tetap milik perusahaan Anda. Kepemilikan source code dan akses ke server disepakati secara tertulis di kontrak sebelum pengembangan dimulai. Dokumentasi teknis dan knowledge transfer disiapkan supaya tim internal Anda bisa merawat dan mengembangkan sistem tanpa bergantung pada satu orang.
                   seo:
                     title: null
                     description: null
@@ -1736,6 +1822,17 @@ paths:
                     body: Evaluasi produk yang sudah ada beserta daftar perbaikan berdasarkan prioritas.
                   systems: []
                   packages: []
+                  faqs:
+                  - question: Apa saja yang dikerjakan dalam layanan UI/UX Design?
+                    answer: User research dan persona, wireframe serta prototipe interaktif, design system, dan high-fidelity mockup yang siap diserahkan ke developer. Untuk produk yang sudah berjalan, Kami juga melakukan UX audit beserta daftar perbaikan berdasarkan prioritas.
+                  - question: Kenapa perlu riset pengguna sebelum mendesain?
+                    answer: Karena desain yang terlihat cantik belum tentu dipakai. Lewat wawancara dan observasi pengguna nyata, Kami memahami konteks kerja mereka lebih dulu, lalu memvalidasi alur lewat wireframe dan prototipe sebelum masuk desain visual. Dengan begitu, perubahan besar terjadi di tahap desain, bukan setelah aplikasi selesai dibangun.
+                  - question: Bagaimana sistem biaya layanan UI/UX Design?
+                    answer: Layanan ini dikerjakan per proyek. Biaya ditentukan dari ruang lingkup, misalnya jumlah alur dan layar, kedalaman riset pengguna, dan apakah dibutuhkan design system lengkap. Rinciannya Kami sampaikan setelah memahami kebutuhan Anda di sesi diskusi.
+                  - question: Apakah aplikasi yang sudah berjalan bisa diaudit dan diperbaiki desainnya?
+                    answer: Bisa. UX audit mengevaluasi produk yang sudah ada, termasuk bagian yang sering dikeluhkan pengguna, lalu menghasilkan daftar perbaikan berdasarkan prioritas. Perbaikan bisa dikerjakan bertahap tanpa harus mendesain ulang seluruh aplikasi.
+                  - question: Apakah hasil desain bisa langsung dipakai oleh tim developer kami?
+                    answer: Bisa. Hasil akhirnya berupa design system dan high-fidelity mockup dengan komponen visual yang konsisten, sehingga siap diserahkan ke developer internal Anda maupun vendor lain. Jika diperlukan, pengembangannya juga bisa dilanjutkan bersama tim Kami.
                   seo:
                     title: null
                     description: null
@@ -1774,6 +1871,17 @@ paths:
                   - ETL
                   - Business Intelligence
                   packages: []
+                  faqs:
+                  - question: Apa yang dikerjakan dalam layanan Data Analysis & Processing?
+                    answer: Kami memulai dengan data audit dan gap analysis untuk memetakan data yang tersedia dibandingkan data yang dibutuhkan untuk mengambil keputusan. Setelah itu data dari berbagai sumber dikonsolidasikan lewat ETL pipeline, lalu disajikan dalam dashboard KPI, business intelligence, dan laporan yang disesuaikan untuk kebutuhan eksekutif maupun operasional.
+                  - question: Data kami tersebar di spreadsheet dan beberapa aplikasi. Apakah bisa disatukan?
+                    answer: Bisa. Kondisi seperti ini justru yang paling sering Kami temui. ETL pipeline menarik data dari spreadsheet, database, dan aplikasi yang Anda pakai ke satu tempat yang bisa dipercaya, sehingga laporan bulanan tidak perlu lagi dirangkum manual.
+                  - question: Bagaimana model kerja dan biayanya?
+                    answer: Tersedia per proyek atau retainer. Per proyek cocok untuk pekerjaan yang jelas batasnya, misalnya membangun pipeline data dan dashboard pertama. Retainer cocok jika Anda butuh pendampingan berkelanjutan, seperti penambahan sumber data, laporan baru, dan perawatan pipeline. Biaya ditentukan dari jumlah sumber data dan kompleksitas laporan.
+                  - question: Apakah dashboard diperbarui secara otomatis?
+                    answer: Ya. Setelah pipeline berjalan, KPI di dashboard diperbarui otomatis dari sumber datanya, sehingga manajemen dan tiap divisi melihat angka yang sama tanpa menunggu rekap manual.
+                  - question: Bagaimana keamanan data perusahaan kami selama proyek?
+                    answer: Akses ke data hanya diberikan sesuai kebutuhan pekerjaan dan disepakati bersama di awal proyek. Data tetap milik perusahaan Anda dan hanya diolah untuk tujuan proyek. Jika perusahaan Anda memiliki kebijakan keamanan atau perjanjian kerahasiaan sendiri, Kami mengikuti kebijakan tersebut.
                   seo:
                     title: null
                     description: null
@@ -1809,6 +1917,17 @@ paths:
                     body: Membekali tim internal supaya bisa mengambil keputusan teknologi sendiri.
                   systems: []
                   packages: []
+                  faqs:
+                  - question: Kapan perusahaan membutuhkan IT consultant?
+                    answer: Biasanya sebelum berinvestasi di sistem baru, saat harus memilih di antara beberapa vendor atau arsitektur, atau ketika sistem yang berjalan terasa lambat, mahal, dan sulit dikembangkan. Konsultan memberi perspektif independen supaya keputusan teknologi diambil berdasarkan kebutuhan bisnis, bukan sekadar tawaran vendor.
+                  - question: Apa saja cakupan layanan IT Consultant?
+                    answer: IT audit dan technology assessment terhadap sistem, infrastruktur, dan keamanan yang berjalan saat ini; roadmap digitalisasi bertahap yang realistis dengan anggaran; evaluasi dan seleksi vendor secara objektif; serta pendampingan dan capacity building supaya tim internal bisa mengambil keputusan teknologi sendiri.
+                  - question: Apa hasil akhir dari IT audit?
+                    answer: Laporan kondisi sistem, infrastruktur, dan keamanan yang berjalan saat ini, beserta risiko yang ditemukan dan rekomendasi perbaikan berdasarkan prioritas. Hasil audit ini juga menjadi dasar penyusunan roadmap digitalisasi.
+                  - question: Bagaimana sistem biaya konsultasi?
+                    answer: Konsultasi bisa per sesi untuk kebutuhan yang spesifik, misalnya review arsitektur atau evaluasi satu vendor, atau retainer untuk pendampingan berkelanjutan selama proses digitalisasi. Ruang lingkup dan bentuk laporan disepakati di awal.
+                  - question: Apakah rekomendasi vendor dari Mind2Screen bersifat objektif?
+                    answer: Ya. Vendor dan tools dibandingkan dengan kriteria yang disepakati bersama di awal, berdasarkan kebutuhan bisnis dan anggaran Anda. Jika salah satu opsinya adalah dikerjakan oleh tim Kami sendiri, hal itu Kami sampaikan secara terbuka supaya Anda tetap bisa menilai secara adil.
                   seo:
                     title: null
                     description: null
@@ -1885,6 +2004,17 @@ paths:
                     - Dukungan prioritas
                     highlighted: false
                     sortOrder: 4
+                  faqs:
+                  - question: Berapa biaya pembuatan website?
+                    answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+                  - question: Apa saja yang sudah termasuk dalam harga?
+                    answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+                  - question: Apakah saya bisa mengelola konten website sendiri?
+                    answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+                  - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                    answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+                  - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                    answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
                   seo:
                     title: null
                     description: null
@@ -1984,6 +2114,17 @@ paths:
                 - Multi-bahasa & SEO teknis
                 - Dukungan prioritas
                 highlighted: false
+              faqs:
+              - question: Berapa biaya pembuatan website?
+                answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+              - question: Apa saja yang sudah termasuk dalam harga?
+                answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+              - question: Apakah saya bisa mengelola konten website sendiri?
+                answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+              - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+              - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
               seo:
                 title: null
                 description: null
@@ -2076,6 +2217,17 @@ paths:
                     - Dukungan prioritas
                     highlighted: false
                     sortOrder: 4
+                  faqs:
+                  - question: Berapa biaya pembuatan website?
+                    answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+                  - question: Apa saja yang sudah termasuk dalam harga?
+                    answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+                  - question: Apakah saya bisa mengelola konten website sendiri?
+                    answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+                  - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                    answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+                  - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                    answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
                   seo:
                     title: null
                     description: null
@@ -2193,6 +2345,17 @@ paths:
                     - Dukungan prioritas
                     highlighted: false
                     sortOrder: 4
+                  faqs:
+                  - question: Berapa biaya pembuatan website?
+                    answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+                  - question: Apa saja yang sudah termasuk dalam harga?
+                    answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+                  - question: Apakah saya bisa mengelola konten website sendiri?
+                    answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+                  - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                    answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+                  - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                    answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
                   seo:
                     title: null
                     description: null
@@ -2292,6 +2455,17 @@ paths:
                 - Multi-bahasa & SEO teknis
                 - Dukungan prioritas
                 highlighted: false
+              faqs:
+              - question: Berapa biaya pembuatan website?
+                answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+              - question: Apa saja yang sudah termasuk dalam harga?
+                answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+              - question: Apakah saya bisa mengelola konten website sendiri?
+                answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+              - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+              - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
               seo:
                 title: null
                 description: null
@@ -2384,6 +2558,17 @@ paths:
                     - Dukungan prioritas
                     highlighted: false
                     sortOrder: 4
+                  faqs:
+                  - question: Berapa biaya pembuatan website?
+                    answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+                  - question: Apa saja yang sudah termasuk dalam harga?
+                    answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+                  - question: Apakah saya bisa mengelola konten website sendiri?
+                    answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+                  - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                    answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+                  - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                    answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
                   seo:
                     title: null
                     description: null
@@ -2516,6 +2701,17 @@ paths:
                   - ERP Internal
                   - Dashboard KPI
                   packages: []
+                  faqs:
+                  - question: Apa saja yang termasuk dalam layanan Custom Software Development?
+                    answer: Mulai dari discovery dan pemetaan proses bisnis bersama stakeholder, perancangan sistem, pengembangan per modul, integrasi dengan sistem yang sudah ada, sampai dokumentasi teknis dan knowledge transfer ke tim internal Anda. Sistem yang biasa Kami bangun antara lain HRIS, DMS, ERP internal, approval workflow, portal internal, dan dashboard KPI, semuanya disesuaikan dengan proses bisnis perusahaan Anda, bukan solusi generik.
+                  - question: Bagaimana cara menentukan biaya pengembangan sistem?
+                    answer: Kami memakai dua model kerja. BOS (Based on Scope) memakai harga tetap per proyek dengan ruang lingkup yang dikunci di awal kontrak, cocok jika kebutuhan sudah terdokumentasi. BOR (Based on Request) dibayar sesuai waktu kerja yang dipakai dan ruang lingkupnya bisa berubah tiap sprint, cocok untuk MVP atau pengembangan berkelanjutan. Model yang paling cocok Kami rekomendasikan setelah sesi discovery.
+                  - question: Berapa lama waktu yang dibutuhkan untuk membangun sistem internal?
+                    answer: Tergantung ruang lingkup dan jumlah modul, sehingga durasi baru bisa diperkirakan dengan jujur setelah discovery, ketika alur kerja dan prioritas fitur sudah jelas. Karena sistem dibangun per modul, modul yang paling mendesak bisa dipakai lebih dulu sementara modul berikutnya dikembangkan bertahap.
+                  - question: Apakah ada pendampingan setelah sistem mulai dipakai?
+                    answer: Ada. Setelah go-live Kami mendampingi masa stabilisasi, melatih tim internal, dan bisa melanjutkan pengembangan modul berikutnya. Bentuk dan durasi dukungan disepakati di awal sesuai model kerja yang dipilih, supaya tim Anda tahu persis apa yang ditangani dan ke mana harus melapor jika ada kendala.
+                  - question: Siapa yang memiliki data dan source code sistem?
+                    answer: Data operasional tetap milik perusahaan Anda. Kepemilikan source code dan akses ke server disepakati secara tertulis di kontrak sebelum pengembangan dimulai. Dokumentasi teknis dan knowledge transfer disiapkan supaya tim internal Anda bisa merawat dan mengembangkan sistem tanpa bergantung pada satu orang.
                   seo:
                     title: null
                     description: null
@@ -2551,6 +2747,17 @@ paths:
                     body: Evaluasi produk yang sudah ada beserta daftar perbaikan berdasarkan prioritas.
                   systems: []
                   packages: []
+                  faqs:
+                  - question: Apa saja yang dikerjakan dalam layanan UI/UX Design?
+                    answer: User research dan persona, wireframe serta prototipe interaktif, design system, dan high-fidelity mockup yang siap diserahkan ke developer. Untuk produk yang sudah berjalan, Kami juga melakukan UX audit beserta daftar perbaikan berdasarkan prioritas.
+                  - question: Kenapa perlu riset pengguna sebelum mendesain?
+                    answer: Karena desain yang terlihat cantik belum tentu dipakai. Lewat wawancara dan observasi pengguna nyata, Kami memahami konteks kerja mereka lebih dulu, lalu memvalidasi alur lewat wireframe dan prototipe sebelum masuk desain visual. Dengan begitu, perubahan besar terjadi di tahap desain, bukan setelah aplikasi selesai dibangun.
+                  - question: Bagaimana sistem biaya layanan UI/UX Design?
+                    answer: Layanan ini dikerjakan per proyek. Biaya ditentukan dari ruang lingkup, misalnya jumlah alur dan layar, kedalaman riset pengguna, dan apakah dibutuhkan design system lengkap. Rinciannya Kami sampaikan setelah memahami kebutuhan Anda di sesi diskusi.
+                  - question: Apakah aplikasi yang sudah berjalan bisa diaudit dan diperbaiki desainnya?
+                    answer: Bisa. UX audit mengevaluasi produk yang sudah ada, termasuk bagian yang sering dikeluhkan pengguna, lalu menghasilkan daftar perbaikan berdasarkan prioritas. Perbaikan bisa dikerjakan bertahap tanpa harus mendesain ulang seluruh aplikasi.
+                  - question: Apakah hasil desain bisa langsung dipakai oleh tim developer kami?
+                    answer: Bisa. Hasil akhirnya berupa design system dan high-fidelity mockup dengan komponen visual yang konsisten, sehingga siap diserahkan ke developer internal Anda maupun vendor lain. Jika diperlukan, pengembangannya juga bisa dilanjutkan bersama tim Kami.
                   seo:
                     title: null
                     description: null
@@ -2589,6 +2796,17 @@ paths:
                   - ETL
                   - Business Intelligence
                   packages: []
+                  faqs:
+                  - question: Apa yang dikerjakan dalam layanan Data Analysis & Processing?
+                    answer: Kami memulai dengan data audit dan gap analysis untuk memetakan data yang tersedia dibandingkan data yang dibutuhkan untuk mengambil keputusan. Setelah itu data dari berbagai sumber dikonsolidasikan lewat ETL pipeline, lalu disajikan dalam dashboard KPI, business intelligence, dan laporan yang disesuaikan untuk kebutuhan eksekutif maupun operasional.
+                  - question: Data kami tersebar di spreadsheet dan beberapa aplikasi. Apakah bisa disatukan?
+                    answer: Bisa. Kondisi seperti ini justru yang paling sering Kami temui. ETL pipeline menarik data dari spreadsheet, database, dan aplikasi yang Anda pakai ke satu tempat yang bisa dipercaya, sehingga laporan bulanan tidak perlu lagi dirangkum manual.
+                  - question: Bagaimana model kerja dan biayanya?
+                    answer: Tersedia per proyek atau retainer. Per proyek cocok untuk pekerjaan yang jelas batasnya, misalnya membangun pipeline data dan dashboard pertama. Retainer cocok jika Anda butuh pendampingan berkelanjutan, seperti penambahan sumber data, laporan baru, dan perawatan pipeline. Biaya ditentukan dari jumlah sumber data dan kompleksitas laporan.
+                  - question: Apakah dashboard diperbarui secara otomatis?
+                    answer: Ya. Setelah pipeline berjalan, KPI di dashboard diperbarui otomatis dari sumber datanya, sehingga manajemen dan tiap divisi melihat angka yang sama tanpa menunggu rekap manual.
+                  - question: Bagaimana keamanan data perusahaan kami selama proyek?
+                    answer: Akses ke data hanya diberikan sesuai kebutuhan pekerjaan dan disepakati bersama di awal proyek. Data tetap milik perusahaan Anda dan hanya diolah untuk tujuan proyek. Jika perusahaan Anda memiliki kebijakan keamanan atau perjanjian kerahasiaan sendiri, Kami mengikuti kebijakan tersebut.
                   seo:
                     title: null
                     description: null
@@ -2624,6 +2842,17 @@ paths:
                     body: Membekali tim internal supaya bisa mengambil keputusan teknologi sendiri.
                   systems: []
                   packages: []
+                  faqs:
+                  - question: Kapan perusahaan membutuhkan IT consultant?
+                    answer: Biasanya sebelum berinvestasi di sistem baru, saat harus memilih di antara beberapa vendor atau arsitektur, atau ketika sistem yang berjalan terasa lambat, mahal, dan sulit dikembangkan. Konsultan memberi perspektif independen supaya keputusan teknologi diambil berdasarkan kebutuhan bisnis, bukan sekadar tawaran vendor.
+                  - question: Apa saja cakupan layanan IT Consultant?
+                    answer: IT audit dan technology assessment terhadap sistem, infrastruktur, dan keamanan yang berjalan saat ini; roadmap digitalisasi bertahap yang realistis dengan anggaran; evaluasi dan seleksi vendor secara objektif; serta pendampingan dan capacity building supaya tim internal bisa mengambil keputusan teknologi sendiri.
+                  - question: Apa hasil akhir dari IT audit?
+                    answer: Laporan kondisi sistem, infrastruktur, dan keamanan yang berjalan saat ini, beserta risiko yang ditemukan dan rekomendasi perbaikan berdasarkan prioritas. Hasil audit ini juga menjadi dasar penyusunan roadmap digitalisasi.
+                  - question: Bagaimana sistem biaya konsultasi?
+                    answer: Konsultasi bisa per sesi untuk kebutuhan yang spesifik, misalnya review arsitektur atau evaluasi satu vendor, atau retainer untuk pendampingan berkelanjutan selama proses digitalisasi. Ruang lingkup dan bentuk laporan disepakati di awal.
+                  - question: Apakah rekomendasi vendor dari Mind2Screen bersifat objektif?
+                    answer: Ya. Vendor dan tools dibandingkan dengan kriteria yang disepakati bersama di awal, berdasarkan kebutuhan bisnis dan anggaran Anda. Jika salah satu opsinya adalah dikerjakan oleh tim Kami sendiri, hal itu Kami sampaikan secara terbuka supaya Anda tetap bisa menilai secara adil.
                   seo:
                     title: null
                     description: null
@@ -2700,6 +2929,17 @@ paths:
                     - Dukungan prioritas
                     highlighted: false
                     sortOrder: 4
+                  faqs:
+                  - question: Berapa biaya pembuatan website?
+                    answer: Paket Starter mulai dari Rp 3.500.000 untuk landing page atau company profile sederhana hingga 5 halaman. Paket Growth, Professional, dan Corporate disesuaikan dengan kebutuhan, misalnya CMS, fitur custom, integrasi API, atau multi-bahasa, sehingga harganya Kami sampaikan setelah diskusi kebutuhan.
+                  - question: Apa saja yang sudah termasuk dalam harga?
+                    answer: "Harga sudah termasuk domain .com untuk satu tahun dan maintenance sesuai paket: 1 bulan untuk Starter, 2 bulan untuk Growth, dan 3 bulan untuk Professional. Paket Corporate mendapatkan dukungan prioritas."
+                  - question: Apakah saya bisa mengelola konten website sendiri?
+                    answer: Bisa. Mulai paket Growth, website dilengkapi CMS sehingga Anda dapat mengelola artikel, promo, dan konten lain sendiri tanpa perlu menghubungi developer setiap kali ada perubahan.
+                  - question: Apakah website sudah dioptimasi untuk mesin pencari?
+                    answer: "Ya. SEO teknis Kami perhatikan sejak awal: kecepatan halaman, Core Web Vitals, dan struktur yang mudah dibaca mesin pencari. Untuk website multi-bahasa dengan kebutuhan SEO teknis yang lebih luas, tersedia paket Corporate."
+                  - question: Bagaimana jika butuh bantuan setelah masa maintenance selesai?
+                    answer: Anda tetap bisa menghubungi Kami untuk perbaikan, penambahan fitur, atau pengembangan lanjutan. Ruang lingkup dan biayanya disepakati sesuai kebutuhan saat itu.
                   seo:
                     title: null
                     description: null
@@ -3497,6 +3737,11 @@ paths:
               - AI & Teknologi
               coverImageUrl: null
               author: Tim Mind2Screen
+              faqs:
+              - question: Apakah website buatan AI bisa langsung dipakai untuk bisnis?
+                answer: Untuk kebutuhan sederhana, AI bisa sangat membantu. Namun website untuk bisnis serius tetap membutuhkan pemahaman tujuan, target pelanggan, dan alur pengguna yang jelas, dan hal itu tidak bisa ditebak AI dari satu prompt.
+              - question: Bagaimana cara memakai AI dengan bijak saat membuat website?
+                answer: Pahami kebutuhan Anda terlebih dahulu, gunakan AI sebagai alat bantu, lalu uji website dari sudut pandang pengguna sebelum diluncurkan.
               seo:
                 title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semuda
                 description: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah
@@ -3547,6 +3792,11 @@ paths:
                     <p>Jawabannya sederhana:</p>
                     <p>Karena membuat website bukan sekadar soal “jadi”.
                     Tapi soal apakah website itu benar-benar bekerja untuk tujuan Anda.</p>
+                  faqs:
+                  - question: Apakah website buatan AI bisa langsung dipakai untuk bisnis?
+                    answer: Untuk kebutuhan sederhana, AI bisa sangat membantu. Namun website untuk bisnis serius tetap membutuhkan pemahaman tujuan, target pelanggan, dan alur pengguna yang jelas, dan hal itu tidak bisa ditebak AI dari satu prompt.
+                  - question: Bagaimana cara memakai AI dengan bijak saat membuat website?
+                    answer: Pahami kebutuhan Anda terlebih dahulu, gunakan AI sebagai alat bantu, lalu uji website dari sudut pandang pengguna sebelum diluncurkan.
                   seo:
                     title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semuda
                     description: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah
@@ -3624,6 +3874,11 @@ paths:
                     <p>Jawabannya sederhana:</p>
                     <p>Karena membuat website bukan sekadar soal “jadi”.
                     Tapi soal apakah website itu benar-benar bekerja untuk tujuan Anda.</p>
+                  faqs:
+                  - question: Apakah website buatan AI bisa langsung dipakai untuk bisnis?
+                    answer: Untuk kebutuhan sederhana, AI bisa sangat membantu. Namun website untuk bisnis serius tetap membutuhkan pemahaman tujuan, target pelanggan, dan alur pengguna yang jelas, dan hal itu tidak bisa ditebak AI dari satu prompt.
+                  - question: Bagaimana cara memakai AI dengan bijak saat membuat website?
+                    answer: Pahami kebutuhan Anda terlebih dahulu, gunakan AI sebagai alat bantu, lalu uji website dari sudut pandang pengguna sebelum diluncurkan.
                   seo:
                     title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semuda
                     description: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah
@@ -3673,6 +3928,11 @@ paths:
               - AI & Teknologi
               coverImageUrl: null
               author: Tim Mind2Screen
+              faqs:
+              - question: Apakah website buatan AI bisa langsung dipakai untuk bisnis?
+                answer: Untuk kebutuhan sederhana, AI bisa sangat membantu. Namun website untuk bisnis serius tetap membutuhkan pemahaman tujuan, target pelanggan, dan alur pengguna yang jelas, dan hal itu tidak bisa ditebak AI dari satu prompt.
+              - question: Bagaimana cara memakai AI dengan bijak saat membuat website?
+                answer: Pahami kebutuhan Anda terlebih dahulu, gunakan AI sebagai alat bantu, lalu uji website dari sudut pandang pengguna sebelum diluncurkan.
               seo:
                 title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semuda
                 description: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah
@@ -3723,6 +3983,11 @@ paths:
                     <p>Jawabannya sederhana:</p>
                     <p>Karena membuat website bukan sekadar soal “jadi”.
                     Tapi soal apakah website itu benar-benar bekerja untuk tujuan Anda.</p>
+                  faqs:
+                  - question: Apakah website buatan AI bisa langsung dipakai untuk bisnis?
+                    answer: Untuk kebutuhan sederhana, AI bisa sangat membantu. Namun website untuk bisnis serius tetap membutuhkan pemahaman tujuan, target pelanggan, dan alur pengguna yang jelas, dan hal itu tidak bisa ditebak AI dari satu prompt.
+                  - question: Bagaimana cara memakai AI dengan bijak saat membuat website?
+                    answer: Pahami kebutuhan Anda terlebih dahulu, gunakan AI sebagai alat bantu, lalu uji website dari sudut pandang pengguna sebelum diluncurkan.
                   seo:
                     title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semuda
                     description: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah
@@ -5564,8 +5829,8 @@ components:
                 maxLength: 300
               description: 'Per-field messages (validation_error, slug_taken, conflict). Keys are **dot paths with numeric
                 indices**, identical to react-hook-form paths: `title`, `seo.description`, `packages.0.priceValue`, `packages.1.features.2`,
-                `deliverables.0.title`, `metrics.1.label`, `initialConditions.3`. An error about an array as a whole (count,
-                duplicates, more than one highlighted package) uses the array key (`metrics`, `tags`, `packages`). Errors
+                `deliverables.0.title`, `metrics.1.label`, `initialConditions.3`, `faqs.2.question`. An error about an array as a whole (count,
+                duplicates, more than one highlighted package) uses the array key (`metrics`, `tags`, `packages`, `faqs`). Errors
                 not tied to a field appear only in `message`.'
     PageMeta:
       type: object
@@ -5909,6 +6174,23 @@ components:
         body:
           type: string
           maxLength: 600
+    FaqItem:
+      type: object
+      description: One FAQ entry (v1.1), plain text without HTML. Used by services and articles; the FE renders the list
+        as FAQPage JSON-LD.
+      additionalProperties: false
+      required:
+      - question
+      - answer
+      properties:
+        question:
+          type: string
+          minLength: 1
+          maxLength: 200
+        answer:
+          type: string
+          minLength: 1
+          maxLength: 1000
     ServicePackage:
       type: object
       additionalProperties: false
@@ -6008,6 +6290,7 @@ components:
       - deliverables
       - systems
       - packages
+      - faqs
       - seo
       properties:
         slug:
@@ -6071,6 +6354,12 @@ components:
             $ref: '#/components/schemas/ServicePackage'
           maxItems: 8
           description: Pricing packages (used by web-development); empty otherwise.
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqItem'
+          maxItems: 10
+          description: FAQ items in editor order (rendered by the FE as FAQPage JSON-LD). Always present; `[]` when none.
         seo:
           $ref: '#/components/schemas/Seo'
     ServiceAdmin:
@@ -6092,6 +6381,7 @@ components:
       - deliverables
       - systems
       - packages
+      - faqs
       - seo
       - status
       - createdAt
@@ -6161,6 +6451,12 @@ components:
             $ref: '#/components/schemas/ServicePackage'
           maxItems: 8
           description: Pricing packages (used by web-development); empty otherwise.
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqItem'
+          maxItems: 10
+          description: FAQ items in editor order (rendered by the FE as FAQPage JSON-LD). Always present; `[]` when none.
         seo:
           $ref: '#/components/schemas/Seo'
         status:
@@ -6257,6 +6553,14 @@ components:
             $ref: '#/components/schemas/ServicePackageInput'
           maxItems: 8
           description: Replaces all packages of the service. Array order = display order.
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqItem'
+          maxItems: 10
+          description: 'Optional (v1.1). Replaces all FAQ items; array order = display order. Omitted → `[]`. Question and
+            answer are trimmed and stripped of HTML (bluemonday strict policy); a value that is empty after that or too long
+            → 422 on `faqs.{i}.question` / `faqs.{i}.answer`; more than 10 items → 422 on `faqs`.'
         seo:
           $ref: '#/components/schemas/Seo'
         status:
@@ -6862,6 +7166,7 @@ components:
       - readMinutes
       - author
       - contentHtml
+      - faqs
       - seo
       properties:
         slug:
@@ -6907,6 +7212,12 @@ components:
           type: string
           maxLength: 200000
           description: Sanitised HTML (bluemonday UGC).
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqItem'
+          maxItems: 10
+          description: FAQ items in editor order (rendered by the FE as FAQPage JSON-LD). Always present; `[]` when none.
         seo:
           $ref: '#/components/schemas/Seo'
     ArticleAdminSummary:
@@ -6970,6 +7281,7 @@ components:
       - author
       - publishedAt
       - contentHtml
+      - faqs
       - seo
       - status
       - isScheduled
@@ -7023,6 +7335,12 @@ components:
         contentHtml:
           type: string
           maxLength: 200000
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqItem'
+          maxItems: 10
+          description: FAQ items in editor order (rendered by the FE as FAQPage JSON-LD). Always present; `[]` when none.
         seo:
           $ref: '#/components/schemas/Seo'
         status:
@@ -7104,6 +7422,14 @@ components:
           type: string
           maxLength: 120
           description: Defaults to `Tim Mind2Screen` when empty.
+        faqs:
+          type: array
+          items:
+            $ref: '#/components/schemas/FaqItem'
+          maxItems: 10
+          description: 'Optional (v1.1). Replaces all FAQ items; array order = display order. Omitted → `[]`. Question and
+            answer are trimmed and stripped of HTML (bluemonday strict policy); a value that is empty after that or too long
+            → 422 on `faqs.{i}.question` / `faqs.{i}.answer`; more than 10 items → 422 on `faqs`.'
         seo:
           $ref: '#/components/schemas/Seo'
     PromoStatus:
