@@ -1,0 +1,19 @@
+# Keep the build context small. docs/content and migrations are embedded
+# into the binary, so they must NOT be ignored.
+.git
+.gitignore
+.dockerignore
+Dockerfile
+docker-compose*.yml
+.env
+.env.*
+bin
+uploads
+data
+*.test
+*.out
+README.md
+scripts
+docs/qa
+docs/reviews
+docs/*.md
