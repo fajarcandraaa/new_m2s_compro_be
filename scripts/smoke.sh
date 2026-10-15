@@ -39,6 +39,8 @@ call() {
   row "$exp" "$code" "$m" "$p" "$note"
 }
 jqo() { jq -r "$1" "$OUT"; }
+# jcheck PATH JQ-EXPR NOTE → asserts the last response body (expects "true")
+jcheck() { row "true" "$(jq -r "$2" "$OUT" 2>/dev/null)" "jq" "$1" "$3"; }
 
 echo "| Method | Path | Expected | Got | Result | Note |"
 echo "|---|---|---|---|---|---|"
@@ -49,6 +51,7 @@ call 200 GET /api/v1/services "5 seeded"
 call 200 GET "/api/v1/services?audience=personal" "audience filter"
 call 400 GET "/api/v1/services?audience=x" "bad enum"
 call 200 GET /api/v1/services/web-development "4 packages"
+jcheck /api/v1/services/web-development '(.data.faqs | length) >= 3 and (.data.faqs[0] | keys) == ["answer","question"]' "seeded faqs"
 call 404 GET /api/v1/services/tidak-ada "unknown slug"
 call 200 GET /api/v1/case-studies ""
 call 200 GET "/api/v1/case-studies?featured=true" "max 2"
@@ -94,9 +97,16 @@ SVC='{"audience":"business","eyebrow":"","title":"Layanan Smoke","tagline":"","s
 call 200 GET /api/v1/admin/services "unpaginated" -b "$JAR"
 call 201 POST /api/v1/admin/services "slug generated, appended" "${A[@]}" -d "$SVC"
 SVC_ID=$(jqo .data.id)
+jcheck /api/v1/admin/services '.data.faqs == []' "faqs omitted → []"
 call 200 GET /api/v1/admin/services/$SVC_ID "" -b "$JAR"
 call 200 PUT /api/v1/admin/services/$SVC_ID "slug kept" "${A[@]}" -d "$(echo "$SVC" | jq -c '.title="Layanan Smoke 2"')"
 call 409 POST /api/v1/admin/services "explicit slug taken" "${A[@]}" -d "$(echo "$SVC" | jq -c '.slug="web-development"')"
+call 200 PUT /api/v1/admin/services/$SVC_ID "faqs saved" "${A[@]}" -d "$(echo "$SVC" | jq -c '.faqs=[{question:" <b>Berapa lama?</b> ",answer:"Tergantung &amp; scope."}]')"
+jcheck /api/v1/admin/services/$SVC_ID '.data.faqs == [{"question":"Berapa lama?","answer":"Tergantung & scope."}]' "faqs trimmed, HTML stripped"
+call 422 PUT /api/v1/admin/services/$SVC_ID "11 faqs → faqs" "${A[@]}" -d "$(echo "$SVC" | jq -c '.faqs=[range(11)|{question:"q",answer:"a"}]')"
+jcheck /api/v1/admin/services/$SVC_ID '.error.fields | has("faqs")' "field faqs"
+call 422 PUT /api/v1/admin/services/$SVC_ID "HTML-only question" "${A[@]}" -d "$(echo "$SVC" | jq -c '.faqs=[{question:"q",answer:"a"},{question:"<p></p>",answer:"a"}]')"
+jcheck /api/v1/admin/services/$SVC_ID '.error.fields | has("faqs.1.question")' "field faqs.1.question"
 curl -s -b "$JAR" "$B/api/v1/admin/services" -o "$OUT"; IDS=$(jq -c '{ids:[.data[].id]}' "$OUT")
 call 200 PUT /api/v1/admin/services/order "all ids" "${A[@]}" -d "$IDS"
 call 422 PUT /api/v1/admin/services/order "missing id" "${A[@]}" -d "$(echo "$IDS" | jq -c '.ids |= .[1:]')"
@@ -114,11 +124,13 @@ call 200 PUT /api/v1/admin/case-studies/$CS_ID "unfeatured publish" "${A[@]}" -d
 ART='{"title":"Artikel Smoke & Uji","excerpt":"x","contentHtml":"<p onclick=\"x()\">Halo</p><script>alert(1)</script>","status":"published","publishedAt":"2030-01-01T08:00:00+07:00","tags":["Smoke","AI & Teknologi"],"coverImageUrl":null,"seo":{"title":null,"description":null,"ogImageUrl":null}}'
 call 201 POST /api/v1/admin/articles "scheduled; sanitised" "${A[@]}" -d "$ART"
 ART_ID=$(jqo .data.id); ART_SLUG=$(jqo .data.slug)
+jcheck /api/v1/admin/articles '.data.faqs == []' "faqs omitted → []"
 call 404 GET /api/v1/articles/$ART_SLUG "scheduled hidden publicly"
 call 200 GET "/api/v1/admin/articles?status=scheduled" "" -b "$JAR"
 call 200 GET /api/v1/admin/articles/$ART_ID "" -b "$JAR"
 call 200 PUT /api/v1/admin/articles/$ART_ID "publish now (publishedAt null)" "${A[@]}" -d "$(echo "$ART" | jq -c '.publishedAt=null')"
 call 200 GET /api/v1/articles/$ART_SLUG "now visible"
+jcheck /api/v1/articles/$ART_SLUG '.data.faqs == []' "faqs present"
 call 409 POST /api/v1/admin/articles "explicit slug taken" "${A[@]}" -d "$(echo "$ART" | jq -c --arg s "$ART_SLUG" '.slug=$s')"
 call 413 POST /api/v1/admin/articles "body > 1 MiB" "${A[@]}" --data-binary @<(python3 -c "print('{\"title\":\"'+'a'*1100000+'\"}')")
 # --- promos
