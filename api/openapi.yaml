@@ -9,9 +9,18 @@ info:
 
     ## Conventions
     - Base path `/api/v1` (browser reaches it same-origin through the Next.js rewrite of `/api/*`; Server Components call `BACKEND_URL` directly). `GET /healthz` lives at the root.
-    - JSON, camelCase. Times are RFC3339 in UTC (`2026-10-15T03:30:00Z`).
+    - JSON, camelCase. Times are returned as RFC3339 in UTC (`2026-10-15T03:30:00Z`); inputs accept RFC3339 with any offset. Business dates are interpreted in Asia/Jakarta (WIB) and the FE formats all dates in WIB.
     - Single item: `{ "data": {...} }`. List: `{ "data": [...], "meta": { "page", "pageSize", "total" } }`. Unpaginated lists still carry `meta`.
-    - Errors: `{ "error": { "code", "message", "fields"? } }` — see `components/schemas/Error` for codes.
+    - Errors: `{ "error": { "code", "message", "fields"? } }` — see `components/schemas/Error` for codes. `fields` keys are dot paths with numeric indices (`packages.0.priceValue`, `seo.title`, `metrics.1.label`, `initialConditions.2`). Unknown routes → JSON 404 `not_found`; wrong method → JSON 405 `method_not_allowed`.
+    - Write semantics:
+      - **POST / PUT = full object.** A missing property is treated as its zero value (`null` / `false` / `""` / `[]`). Clients always send the complete object (the generated types enforce it); required-ness is enforced by FE types, not by a BE 422 for missing keys.
+      - **PATCH = partial** (`LeadPatchInput`, `SettingsTogglesInput`). An absent key means unchanged; `null` clears a nullable field; `{}` → 422 `validation_error`.
+      - For fields typed `string | null`, the BE trims and treats `""` as `null` before validation. All strings are trimmed.
+      - Unknown body properties → 400 `bad_request`. JSON bodies over 1 MiB → 413.
+    - Parameters: a path slug that does not match the slug pattern → 404 `not_found` (the FE renders a real 404). An admin `{id}` that is not a UUID → 400. Query values outside the schema (`pageSize > 100`, `page < 1`, booleans other than `true`/`false`, unknown enum values) → 400 `bad_request`. A page past the end → 200 with `data: []` and the real `total`. Unknown query parameters are ignored.
+    - Ordering: admin content lists are ordered by `updatedAt desc`, except reorderable resources (services, testimonials, client logos: `sortOrder`, unpaginated). Leads: `createdAt desc`.
+    - Slugs: see `ServiceInput` / `ArticleInput` / `CaseStudyInput` descriptions for generation, collision and slugify rules (`AI & Teknologi` → `ai-dan-teknologi`).
+    - Phone numbers (`Lead.whatsapp`, `Site.whatsappNumber`) are normalised to E.164 (`08…` / `628…` → `+628…`); anything that cannot be normalised → 422.
     - Public detail endpoints address content by `slug`; admin endpoints by UUID `id`.
     - Public endpoints only expose visible content (status `published`; articles also need `publishedAt <= now`). Draft/scheduled → 404.
 
@@ -20,7 +29,8 @@ info:
     - Every `/admin/*` endpoint and `/auth/me` require the cookie. Roles per operation are listed in its description and in `x-roles`.
       - `admin`: everything.
       - `editor`: content (articles, services, case studies, promos, testimonials, client logos, media, homepage toggles), dashboard, read-only leads.
-    - CSRF: every mutating request under `/admin/*` and `/auth/*` must send `X-Requested-With: m2s-cms` (403 `csrf_failed` otherwise).
+    - CSRF: every mutating request under `/admin/*`, plus `POST /auth/login` and `POST /auth/logout`, must send `X-Requested-With: m2s-cms` (security scheme `csrfHeader`). The check runs before the session check, so a missing header → 403 `csrf_failed` even when unauthenticated.
+    - Lead export (`GET /admin/leads/export`) and lead updates are admin-only; editors may read leads.
 
     ## Revalidation (BE → FE)
     After a successful admin mutation the BE fires (async, 3 s timeout, failures only logged):
@@ -80,7 +90,7 @@ tags:
 - name: 'Admin: Client Logos'
   description: Client-logo CRUD and ordering (image from /admin/media).
 - name: 'Admin: Leads'
-  description: Read leads (admin + editor); update status/notes (admin).
+  description: Read leads (admin + editor); update status/notes and CSV export (admin only).
 - name: 'Admin: Media'
   description: Image upload.
 - name: 'Admin: Users'
@@ -157,7 +167,7 @@ paths:
       tags:
       - Public
       summary: List published services (by sortOrder)
-      description: 'Unpaginated. Cache tag: `services`.'
+      description: 'Unpaginated, ordered by sortOrder. Cache tag: `services`.'
       parameters:
       - name: audience
         in: query
@@ -402,7 +412,7 @@ paths:
       tags:
       - Public
       summary: Get a published service by slug
-      description: 'Cache tag: `services`.'
+      description: 'Draft or unknown slug (incl. a slug not matching the pattern) → 404. Cache tag: `services`.'
       parameters:
       - $ref: '#/components/parameters/Slug'
       security: []
@@ -713,7 +723,7 @@ paths:
                     benar-benar siap digunakan? Mari pahami realitanya sebelum Anda ikut terburu-buru.
                   coverImageUrl: null
                   tags:
-                  - slug: ai-teknologi
+                  - slug: ai-dan-teknologi
                     name: AI & Teknologi
                   publishedAt: '2026-05-20T01:00:00Z'
                   readMinutes: 4
@@ -777,7 +787,7 @@ paths:
                     benar-benar siap digunakan? Mari pahami realitanya sebelum Anda ikut terburu-buru.
                   coverImageUrl: null
                   tags:
-                  - slug: ai-teknologi
+                  - slug: ai-dan-teknologi
                     name: AI & Teknologi
                   publishedAt: '2026-05-20T01:00:00Z'
                   readMinutes: 4
@@ -953,7 +963,7 @@ paths:
       - Public
       summary: Related articles (sharing at least one tag)
       description: 'Visible articles sharing ≥1 tag with the given article, excluding itself, ordered by number of shared
-        tags desc then publishedAt desc. May be empty. Cache tag: `articles`.'
+        tags desc then publishedAt desc. May be empty. meta.total = number returned. Cache tag: `articles`.'
       parameters:
       - $ref: '#/components/parameters/Slug'
       - name: limit
@@ -1038,7 +1048,7 @@ paths:
                 - slug: keamanan-data
                   name: Keamanan Data
                   articleCount: 2
-                - slug: ai-teknologi
+                - slug: ai-dan-teknologi
                   name: AI & Teknologi
                   articleCount: 1
                 meta:
@@ -1051,8 +1061,9 @@ paths:
       tags:
       - Public
       summary: List public promos
-      description: 'Ended promos are returned only for 7 days after endsAt (FE renders them dimmed). Order: active (endsAt
-        asc), upcoming (startsAt asc), ended (endsAt desc). Unpaginated. Cache tag: `promos`.'
+      description: 'Ended promos are returned only for 7 days after endsAt, also with `status=ended` (the admin list returns
+        all) (FE renders them dimmed). Order: active (endsAt asc), upcoming (startsAt asc), ended (endsAt desc). Unpaginated.
+        Cache tag: `promos`.'
       parameters:
       - name: status
         in: query
@@ -1085,8 +1096,8 @@ paths:
                   title: Diskon 15% Website Company Profile
                   description: Potongan 15% untuk paket Starter dan Growth bagi UMKM yang memulai proyek bulan ini.
                   code: WEBOKT15
-                  startsAt: '2026-10-01T00:00:00Z'
-                  endsAt: '2026-10-31T16:59:59Z'
+                  startsAt: '2026-09-30T17:00:00Z'
+                  endsAt: '2026-10-31T17:00:00Z'
                   status: active
                   service:
                     slug: web-development
@@ -1095,8 +1106,8 @@ paths:
                   title: Gratis Sesi UX Audit
                   description: Satu sesi UX audit 60 menit untuk produk yang sudah berjalan.
                   code: null
-                  startsAt: '2026-11-01T00:00:00Z'
-                  endsAt: '2026-11-30T16:59:59Z'
+                  startsAt: '2026-10-31T17:00:00Z'
+                  endsAt: '2026-11-30T17:00:00Z'
                   status: upcoming
                   service:
                     slug: ui-ux-design
@@ -1113,8 +1124,8 @@ paths:
       tags:
       - Public
       summary: List active testimonials (by sortOrder)
-      description: 'Returns active testimonials regardless of `site.showTestimonials`; the FE applies the toggle. Cache tag:
-        `testimonials`.'
+      description: 'Returns active testimonials regardless of `site.showTestimonials`; the FE applies the toggle. meta.total
+        = number returned. Cache tag: `testimonials`.'
       parameters:
       - name: limit
         in: query
@@ -1209,8 +1220,10 @@ paths:
       tags:
       - Public
       summary: Submit a discussion brief (form /diskusi)
-      description: 'Rate limit: 5 requests/minute per client IP (429 + Retry-After). Honeypot: if `website` is non-empty the
-        BE responds 201 with a random id and stores nothing. No CSRF header required (public form).'
+      description: '**Must be called from the browser via the same-origin `/api` rewrite** — never proxied through a Server
+        Action or Route Handler, because rate limiting keys on the client IP. Rate limit: 5 requests/minute per client IP
+        (429 + Retry-After). Honeypot: if `website` is non-empty the BE responds 201 with a random id and stores nothing (checked
+        before validation). `whatsapp` is normalised to E.164. No CSRF header required (public form).'
       requestBody:
         required: true
         content:
@@ -1221,7 +1234,7 @@ paths:
               name: Budi Santoso
               company: PT Contoh Sejahtera
               email: budi@contoh.co.id
-              whatsapp: '+6281234567890'
+              whatsapp: 0812-3456-7890
               service: custom-software-development
               startTimeframe: 1–3 bulan lagi
               message: Kami ingin memindahkan pengajuan cuti dan lembur dari spreadsheet ke sistem internal.
@@ -1256,9 +1269,8 @@ paths:
       tags:
       - Auth
       summary: Log in; sets the session cookie
-      description: 'Wrong email/password or inactive user → 401 `unauthorized` (same message). Rate limit: 10/minute per IP.'
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
+      description: 'Requires `X-Requested-With: m2s-cms` (csrfHeader). Wrong/malformed email or password, or inactive user
+        → 401 `unauthorized` (same message). Rate limit: 10/minute per client IP.'
       requestBody:
         required: true
         content:
@@ -1268,7 +1280,8 @@ paths:
             example:
               email: admin@mindtoscreen.com
               password: rahasia-sekali
-      security: []
+      security:
+      - csrfHeader: []
       responses:
         '200':
           description: Logged in. Sets `m2s_session` (HttpOnly, SameSite=Lax, Secure in production, Path=/, Max-Age = JWT_TTL).
@@ -1303,8 +1316,6 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
-        '422':
-          $ref: '#/components/responses/ValidationError'
         '429':
           $ref: '#/components/responses/TooManyRequests'
   /auth/logout:
@@ -1313,9 +1324,9 @@ paths:
       tags:
       - Auth
       summary: Log out; clears the session cookie
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
-      security: []
+      description: 'Requires `X-Requested-With: m2s-cms` (csrfHeader); the session cookie is optional.'
+      security:
+      - csrfHeader: []
       responses:
         '204':
           description: 'Logged out (cookie cleared with Max-Age=0). Idempotent: also 204 without a valid session.'
@@ -1488,11 +1499,9 @@ paths:
       x-roles:
       - admin
       description: |-
-        Revalidates: `site`.
+        Full-object semantics; `whatsappNumber` normalised to E.164. Revalidates: `site`.
 
         Roles: admin.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -1513,6 +1522,7 @@ paths:
               instagramUrl: null
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated settings.
@@ -1548,6 +1558,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/settings/toggles:
@@ -1563,8 +1575,6 @@ paths:
         Used by the Testimoni screen switches. Revalidates: `site`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -1575,6 +1585,7 @@ paths:
               showClientLogos: true
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated settings.
@@ -1610,6 +1621,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/services:
@@ -1622,13 +1635,10 @@ paths:
       - admin
       - editor
       description: |-
-        Ordered by sortOrder. `q` searches title/slug.
+        Ordered by sortOrder. Unpaginated: returns every item (meta page=1, pageSize=max(total,1)); filters are for display only — PUT .../order must still send every id.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/PageSize'
-      - $ref: '#/components/parameters/Q'
       - $ref: '#/components/parameters/ContentStatusFilter'
       - name: audience
         in: query
@@ -1904,8 +1914,6 @@ paths:
         New services are appended (sortOrder = max+1). Revalidates: `services`, `promos`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -1949,7 +1957,6 @@ paths:
                 - Desain dari template brand
                 - Maintenance 1 bulan
                 highlighted: false
-                sortOrder: 1
               - name: Growth
                 priceLabel: ''
                 priceValue: Hubungi Kami
@@ -1959,7 +1966,6 @@ paths:
                 - CMS konten
                 - Maintenance 2 bulan
                 highlighted: true
-                sortOrder: 2
               - name: Professional
                 priceLabel: ''
                 priceValue: Hubungi Kami
@@ -1969,7 +1975,6 @@ paths:
                 - Integrasi API
                 - Maintenance 3 bulan
                 highlighted: false
-                sortOrder: 3
               - name: Corporate
                 priceLabel: ''
                 priceValue: Hubungi Kami
@@ -1979,7 +1984,6 @@ paths:
                 - Multi-bahasa & SEO teknis
                 - Dukungan prioritas
                 highlighted: false
-                sortOrder: 4
               seo:
                 title: null
                 description: null
@@ -1987,6 +1991,7 @@ paths:
               status: published
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Created.
@@ -2086,6 +2091,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/services/{id}:
@@ -2210,11 +2217,10 @@ paths:
       - admin
       - editor
       description: |-
-        Revalidates: `services`, `promos`.
+        Full-object semantics: send the complete object; a missing property is treated as its zero value (null/false/""/[]). Revalidates: `services`, `promos`.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -2259,7 +2265,6 @@ paths:
                 - Desain dari template brand
                 - Maintenance 1 bulan
                 highlighted: false
-                sortOrder: 1
               - name: Growth
                 priceLabel: ''
                 priceValue: Hubungi Kami
@@ -2269,7 +2274,6 @@ paths:
                 - CMS konten
                 - Maintenance 2 bulan
                 highlighted: true
-                sortOrder: 2
               - name: Professional
                 priceLabel: ''
                 priceValue: Hubungi Kami
@@ -2279,7 +2283,6 @@ paths:
                 - Integrasi API
                 - Maintenance 3 bulan
                 highlighted: false
-                sortOrder: 3
               - name: Corporate
                 priceLabel: ''
                 priceValue: Hubungi Kami
@@ -2289,7 +2292,6 @@ paths:
                 - Multi-bahasa & SEO teknis
                 - Dukungan prioritas
                 highlighted: false
-                sortOrder: 4
               seo:
                 title: null
                 description: null
@@ -2297,6 +2299,7 @@ paths:
               status: published
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated.
@@ -2398,6 +2401,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
     delete:
@@ -2413,10 +2418,10 @@ paths:
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -2441,8 +2446,6 @@ paths:
         `ids` must contain every id exactly once. Revalidates: `services`, `promos`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -2458,6 +2461,7 @@ paths:
               - 4ecc20f8-675b-5c13-8161-17579f6ee67d
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Items in new order.
@@ -2713,6 +2717,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/case-studies:
@@ -2724,10 +2730,7 @@ paths:
       x-roles:
       - admin
       - editor
-      description: |-
-        Ordered by sortOrder, then createdAt. `q` searches title/systemName/category.
-
-        Roles: admin, editor.
+      description: "Ordered by updatedAt desc. `q` searches title/systemName/category. \n\nRoles: admin, editor."
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
@@ -2897,8 +2900,6 @@ paths:
         Revalidates: `case-studies`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -2968,6 +2969,7 @@ paths:
               status: published
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Created.
@@ -3054,6 +3056,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/case-studies/{id}:
@@ -3165,11 +3169,10 @@ paths:
       - admin
       - editor
       description: |-
-        Revalidates: `case-studies`.
+        Full-object semantics: send the complete object; a missing property is treated as its zero value (null/false/""/[]). Revalidates: `case-studies`.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -3240,6 +3243,7 @@ paths:
               status: published
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated.
@@ -3328,6 +3332,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
     delete:
@@ -3343,10 +3349,10 @@ paths:
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -3367,10 +3373,7 @@ paths:
       x-roles:
       - admin
       - editor
-      description: |-
-        Ordered by updatedAt desc. `q` searches title/slug.
-
-        Roles: admin, editor.
+      description: "Ordered by updatedAt desc. `q` searches title/slug. \n\nRoles: admin, editor."
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
@@ -3428,7 +3431,7 @@ paths:
                   slug: ai-bisa-membuat-website-dalam-hitungan-menit-tapi-apakah-benar-semudah-itu
                   title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semudah Itu?
                   tags:
-                  - slug: ai-teknologi
+                  - slug: ai-dan-teknologi
                     name: AI & Teknologi
                   publishedAt: '2026-05-20T01:00:00Z'
                   status: published
@@ -3476,8 +3479,6 @@ paths:
         contentHtml is sanitised with bluemonday UGC policy; unknown tag names are created. Revalidates: `articles`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -3503,6 +3504,7 @@ paths:
                 ogImageUrl: null
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Created.
@@ -3525,7 +3527,7 @@ paths:
                     benar-benar siap digunakan? Mari pahami realitanya sebelum Anda ikut terburu-buru.
                   coverImageUrl: null
                   tags:
-                  - slug: ai-teknologi
+                  - slug: ai-dan-teknologi
                     name: AI & Teknologi
                   publishedAt: '2026-05-20T01:00:00Z'
                   readMinutes: 4
@@ -3562,6 +3564,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/articles/{id}:
@@ -3600,7 +3604,7 @@ paths:
                     benar-benar siap digunakan? Mari pahami realitanya sebelum Anda ikut terburu-buru.
                   coverImageUrl: null
                   tags:
-                  - slug: ai-teknologi
+                  - slug: ai-dan-teknologi
                     name: AI & Teknologi
                   publishedAt: '2026-05-20T01:00:00Z'
                   readMinutes: 4
@@ -3646,11 +3650,10 @@ paths:
       - admin
       - editor
       description: |-
-        Revalidates: `articles`.
+        Full-object semantics: send the complete object; a missing property is treated as its zero value (null/false/""/[]). Revalidates: `articles`.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -3677,6 +3680,7 @@ paths:
                 ogImageUrl: null
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated.
@@ -3699,7 +3703,7 @@ paths:
                     benar-benar siap digunakan? Mari pahami realitanya sebelum Anda ikut terburu-buru.
                   coverImageUrl: null
                   tags:
-                  - slug: ai-teknologi
+                  - slug: ai-dan-teknologi
                     name: AI & Teknologi
                   publishedAt: '2026-05-20T01:00:00Z'
                   readMinutes: 4
@@ -3738,6 +3742,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
     delete:
@@ -3753,10 +3759,10 @@ paths:
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -3777,10 +3783,7 @@ paths:
       x-roles:
       - admin
       - editor
-      description: |-
-        Ordered by startsAt desc. Includes all ended promos. `q` searches title/code.
-
-        Roles: admin, editor.
+      description: "Ordered by updatedAt desc. Includes all ended promos. `q` searches title/code. \n\nRoles: admin, editor."
       parameters:
       - $ref: '#/components/parameters/Page'
       - $ref: '#/components/parameters/PageSize'
@@ -3816,8 +3819,8 @@ paths:
                   title: Diskon 15% Website Company Profile
                   description: Potongan 15% untuk paket Starter dan Growth bagi UMKM yang memulai proyek bulan ini.
                   code: WEBOKT15
-                  startsAt: '2026-10-01T00:00:00Z'
-                  endsAt: '2026-10-31T16:59:59Z'
+                  startsAt: '2026-09-30T17:00:00Z'
+                  endsAt: '2026-10-31T17:00:00Z'
                   status: active
                   service:
                     slug: web-development
@@ -3829,8 +3832,8 @@ paths:
                   title: Gratis Sesi UX Audit
                   description: Satu sesi UX audit 60 menit untuk produk yang sudah berjalan.
                   code: null
-                  startsAt: '2026-11-01T00:00:00Z'
-                  endsAt: '2026-11-30T16:59:59Z'
+                  startsAt: '2026-10-31T17:00:00Z'
+                  endsAt: '2026-11-30T17:00:00Z'
                   status: upcoming
                   service:
                     slug: ui-ux-design
@@ -3860,8 +3863,6 @@ paths:
         Revalidates: `promos`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -3872,11 +3873,12 @@ paths:
               title: Diskon 15% Website Company Profile
               serviceId: 4ecc20f8-675b-5c13-8161-17579f6ee67d
               description: Potongan 15% untuk paket Starter dan Growth bagi UMKM yang memulai proyek bulan ini.
-              startsAt: '2026-10-01T00:00:00Z'
-              endsAt: '2026-10-31T16:59:59Z'
+              startsAt: '2026-09-30T17:00:00Z'
+              endsAt: '2026-10-31T17:00:00Z'
               code: WEBOKT15
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Created.
@@ -3896,8 +3898,8 @@ paths:
                   title: Diskon 15% Website Company Profile
                   description: Potongan 15% untuk paket Starter dan Growth bagi UMKM yang memulai proyek bulan ini.
                   code: WEBOKT15
-                  startsAt: '2026-10-01T00:00:00Z'
-                  endsAt: '2026-10-31T16:59:59Z'
+                  startsAt: '2026-09-30T17:00:00Z'
+                  endsAt: '2026-10-31T17:00:00Z'
                   status: active
                   service:
                     slug: web-development
@@ -3911,6 +3913,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/promos/{id}:
@@ -3946,8 +3950,8 @@ paths:
                   title: Diskon 15% Website Company Profile
                   description: Potongan 15% untuk paket Starter dan Growth bagi UMKM yang memulai proyek bulan ini.
                   code: WEBOKT15
-                  startsAt: '2026-10-01T00:00:00Z'
-                  endsAt: '2026-10-31T16:59:59Z'
+                  startsAt: '2026-09-30T17:00:00Z'
+                  endsAt: '2026-10-31T17:00:00Z'
                   status: active
                   service:
                     slug: web-development
@@ -3972,11 +3976,10 @@ paths:
       - admin
       - editor
       description: |-
-        Revalidates: `promos`.
+        Full-object semantics: send the complete object; a missing property is treated as its zero value (null/false/""/[]). Revalidates: `promos`.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -3988,11 +3991,12 @@ paths:
               title: Diskon 15% Website Company Profile
               serviceId: 4ecc20f8-675b-5c13-8161-17579f6ee67d
               description: Potongan 15% untuk paket Starter dan Growth bagi UMKM yang memulai proyek bulan ini.
-              startsAt: '2026-10-01T00:00:00Z'
-              endsAt: '2026-10-31T16:59:59Z'
+              startsAt: '2026-09-30T17:00:00Z'
+              endsAt: '2026-10-31T17:00:00Z'
               code: WEBOKT15
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated.
@@ -4012,8 +4016,8 @@ paths:
                   title: Diskon 15% Website Company Profile
                   description: Potongan 15% untuk paket Starter dan Growth bagi UMKM yang memulai proyek bulan ini.
                   code: WEBOKT15
-                  startsAt: '2026-10-01T00:00:00Z'
-                  endsAt: '2026-10-31T16:59:59Z'
+                  startsAt: '2026-09-30T17:00:00Z'
+                  endsAt: '2026-10-31T17:00:00Z'
                   status: active
                   service:
                     slug: web-development
@@ -4029,6 +4033,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
     delete:
@@ -4044,10 +4050,10 @@ paths:
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -4069,13 +4075,10 @@ paths:
       - admin
       - editor
       description: |-
-        Ordered by sortOrder. `q` searches clientName/company/quote.
+        Ordered by sortOrder. Unpaginated: returns every item (meta page=1, pageSize=max(total,1)); filters are for display only — PUT .../order must still send every id.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/PageSize'
-      - $ref: '#/components/parameters/Q'
       - name: isActive
         in: query
         required: false
@@ -4143,8 +4146,6 @@ paths:
         Revalidates: `testimonials`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -4159,6 +4160,7 @@ paths:
               isActive: true
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Created.
@@ -4189,6 +4191,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/testimonials/{id}:
@@ -4246,11 +4250,10 @@ paths:
       - admin
       - editor
       description: |-
-        Revalidates: `testimonials`.
+        Full-object semantics: send the complete object; a missing property is treated as its zero value (null/false/""/[]). Revalidates: `testimonials`.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -4266,6 +4269,7 @@ paths:
               isActive: true
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated.
@@ -4298,6 +4302,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
     delete:
@@ -4313,10 +4319,10 @@ paths:
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -4341,8 +4347,6 @@ paths:
         `ids` must contain every id exactly once. Revalidates: `testimonials`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -4355,6 +4359,7 @@ paths:
               - 625ba9a8-355c-5d8e-9051-e443b7ef106a
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Items in new order.
@@ -4403,6 +4408,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/client-logos:
@@ -4415,13 +4422,9 @@ paths:
       - admin
       - editor
       description: |-
-        Ordered by sortOrder. `q` searches name.
+        Ordered by sortOrder. Unpaginated: returns every item (meta page=1, pageSize=max(total,1)); filters are for display only — PUT .../order must still send every id.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/Page'
-      - $ref: '#/components/parameters/PageSize'
-      - $ref: '#/components/parameters/Q'
       security:
       - sessionCookie: []
       responses:
@@ -4478,8 +4481,6 @@ paths:
         Revalidates: `client-logos`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -4491,6 +4492,7 @@ paths:
               imageUrl: /uploads/3f9a1c7e2b5d4a68.png
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Created.
@@ -4518,6 +4520,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/client-logos/{id}:
@@ -4572,11 +4576,10 @@ paths:
       - admin
       - editor
       description: |-
-        Revalidates: `client-logos`.
+        Full-object semantics: send the complete object; a missing property is treated as its zero value (null/false/""/[]). Revalidates: `client-logos`.
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -4589,6 +4592,7 @@ paths:
               imageUrl: /uploads/3f9a1c7e2b5d4a68.png
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated.
@@ -4618,6 +4622,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
     delete:
@@ -4633,10 +4639,10 @@ paths:
 
         Roles: admin, editor.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -4661,8 +4667,6 @@ paths:
         `ids` must contain every id exactly once. Revalidates: `client-logos`.
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -4675,6 +4679,7 @@ paths:
               - 003a9530-82f4-5853-b4ce-5433e34ae951
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Items in new order.
@@ -4717,6 +4722,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         '403':
           $ref: '#/components/responses/Forbidden'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/leads:
@@ -4729,7 +4736,7 @@ paths:
       - admin
       - editor
       description: |-
-        `q` searches name/company/email/whatsapp/message.
+        Ordered by createdAt desc. `q` searches name/company/email/whatsapp/message.
 
         Roles: admin, editor.
       parameters:
@@ -4807,11 +4814,10 @@ paths:
       summary: Export leads as CSV
       x-roles:
       - admin
-      - editor
       description: |-
-        Same filters as the list, unpaginated. Cells starting with `= + - @` are prefixed with `'` (CSV injection guard).
+        Admin only (bulk personal data). Same filters as the list, unpaginated, ordered by createdAt desc. `Content-Type: text/csv; charset=utf-8`, UTF-8 with BOM (Excel), CRLF line endings, RFC 4180 quoting. Columns in order: `createdAt, name, company, email, whatsapp, service, startTimeframe, status, message, notes` (header row uses these names). `createdAt` is RFC3339 UTC; `service` = service title, falling back to the slug, empty if none. Cells starting with `= + - @ \t \r` are prefixed with `'` (CSV injection guard).
 
-        Roles: admin, editor.
+        Roles: admin.
       parameters:
       - $ref: '#/components/parameters/Q'
       - name: status
@@ -4832,9 +4838,9 @@ paths:
             text/csv:
               schema:
                 type: string
-              example: |
-                id,createdAt,status,name,company,email,whatsapp,service,startTimeframe,message,notes
-                02767e75-5466-5d05-84e5-eb7af7462965,2026-10-15T04:12:09Z,new,Budi Santoso,PT Contoh Sejahtera,budi@contoh.co.id,+6281234567890,custom-software-development,1–3 bulan lagi,"Kami ingin memindahkan pengajuan cuti dan lembur dari spreadsheet ke sistem internal.",
+              example: "\uFEFFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes\r\n2026-10-15T04:12:09Z,Budi\
+                \ Santoso,PT Contoh Sejahtera,budi@contoh.co.id,+6281234567890,Custom Software Development,1–3 bulan lagi,new,Kami\
+                \ ingin memindahkan pengajuan cuti dan lembur dari spreadsheet ke sistem internal.,\r\n"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -4899,11 +4905,10 @@ paths:
       x-roles:
       - admin
       description: |-
-        Editors have read-only access to leads (brief §3).
+        Partial update (PATCH semantics): absent key = unchanged, `notes: null` or `""` clears, `{}` → 422. Editors have read-only access to leads (brief §3).
 
         Roles: admin.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -4916,6 +4921,7 @@ paths:
               notes: Jadwalkan call Kamis 10.00.
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated lead.
@@ -4952,6 +4958,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/media:
@@ -4967,10 +4975,9 @@ paths:
         multipart/form-data with one `file` part. Max 2 MiB. Type detected by content sniffing: JPEG, PNG, WebP only (SVG and everything else → 415). Stored under UPLOAD_DIR with a random name and served at `/uploads/<name>`. Not revalidating (the entity that references it triggers revalidation).
 
         Roles: admin, editor.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Stored.
@@ -5014,6 +5021,7 @@ paths:
               properties:
                 file:
                   type: string
+                  format: binary
                   contentMediaType: application/octet-stream
                   description: Image file (jpg, png, webp), max 2 MiB.
             encoding:
@@ -5091,11 +5099,9 @@ paths:
       x-roles:
       - admin
       description: |-
-        Email is unique case-insensitively (409 `conflict`).
+        Email is unique case-insensitively (409 `conflict` with `fields.email`).
 
         Roles: admin.
-      parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       requestBody:
         required: true
         content:
@@ -5109,6 +5115,7 @@ paths:
               password: kataSandiAwal123
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '201':
           description: Created.
@@ -5140,6 +5147,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
   /admin/users/{id}:
@@ -5194,11 +5203,10 @@ paths:
       x-roles:
       - admin
       description: |-
-        409 when changing your own role or deactivating yourself, or when the email is taken. Role change / deactivation invalidates that user's sessions.
+        Full-object semantics. 409 `conflict` with `fields.role` (changing your own role), `fields.isActive` (deactivating yourself) or `fields.email` (email taken). Role change / deactivation invalidates that user's sessions.
 
         Roles: admin.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -5213,6 +5221,7 @@ paths:
               isActive: false
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '200':
           description: Updated.
@@ -5246,6 +5255,8 @@ paths:
           $ref: '#/components/responses/NotFound'
         '409':
           $ref: '#/components/responses/Conflict'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
     delete:
@@ -5256,14 +5267,14 @@ paths:
       x-roles:
       - admin
       description: |-
-        409 when deleting yourself.
+        409 `conflict` (no field) when deleting yourself.
 
         Roles: admin.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -5290,7 +5301,6 @@ paths:
 
         Roles: admin.
       parameters:
-      - $ref: '#/components/parameters/XRequestedWith'
       - $ref: '#/components/parameters/Id'
       requestBody:
         required: true
@@ -5302,6 +5312,7 @@ paths:
               password: kataSandiBaru456
       security:
       - sessionCookie: []
+        csrfHeader: []
       responses:
         '204':
           $ref: '#/components/responses/NoContent'
@@ -5313,6 +5324,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '422':
           $ref: '#/components/responses/ValidationError'
 components:
@@ -5322,16 +5335,13 @@ components:
       in: cookie
       name: m2s_session
       description: JWT set by POST /auth/login. HttpOnly, SameSite=Lax, Secure in production.
-  parameters:
-    XRequestedWith:
-      name: X-Requested-With
+    csrfHeader:
+      type: apiKey
       in: header
-      required: true
-      description: CSRF guard for mutating admin/auth requests. Must equal `m2s-cms`; otherwise 403 `csrf_failed`.
-      schema:
-        type: string
-        enum:
-        - m2s-cms
+      name: X-Requested-With
+      description: CSRF guard. Value must equal `m2s-cms`; otherwise 403 `csrf_failed`. Required on mutating admin operations
+        and on /auth/login, /auth/logout. Set once in the FE API client middleware.
+  parameters:
     Page:
       name: page
       in: query
@@ -5425,19 +5435,40 @@ components:
               code: not_found
               message: Data tidak ditemukan.
     Conflict:
-      description: Uniqueness or business-rule conflict (slug/email taken, featured limit, self-demotion).
+      description: 'Uniqueness or business-rule conflict. `fields` names the responsible field when there is one: `slug` (slug_taken),
+        `featured` (featured limit), `email` (email taken), `role` (self role change), `isActive` (self deactivation); self
+        delete has no field.'
       content:
         application/json:
           schema:
             $ref: '#/components/schemas/Error'
-          example:
-            error:
-              code: slug_taken
-              message: Slug sudah dipakai.
-              fields:
-                slug: Slug sudah dipakai.
+          examples:
+            slugTaken:
+              summary: Explicit slug already used
+              value:
+                error:
+                  code: slug_taken
+                  message: Slug sudah dipakai.
+                  fields:
+                    slug: Slug sudah dipakai.
+            featuredLimit:
+              summary: Third featured case study
+              value:
+                error:
+                  code: conflict
+                  message: Maksimal 2 studi kasus unggulan.
+                  fields:
+                    featured: Maksimal 2 studi kasus unggulan.
+            emailTaken:
+              summary: User email taken
+              value:
+                error:
+                  code: conflict
+                  message: Email sudah dipakai.
+                  fields:
+                    email: Email sudah dipakai.
     ValidationError:
-      description: Field validation failed.
+      description: Field validation failed. `fields` keys are dot paths (see Error.fields).
       content:
         application/json:
           schema:
@@ -5447,7 +5478,10 @@ components:
               code: validation_error
               message: Periksa kembali isian Anda.
               fields:
-                email: Format email tidak valid.
+                title: Wajib diisi.
+                seo.description: Maksimal 160 karakter.
+                packages.0.priceValue: Wajib diisi.
+                metrics.1.label: Wajib diisi.
     TooManyRequests:
       description: Rate limit exceeded.
       content:
@@ -5465,7 +5499,7 @@ components:
             type: integer
             minimum: 1
     PayloadTooLarge:
-      description: Upload exceeds 2 MiB.
+      description: Upload exceeds UPLOAD_MAX_BYTES (2 MiB), or JSON body exceeds 1 MiB.
       content:
         application/json:
           schema:
@@ -5511,6 +5545,7 @@ components:
               - forbidden
               - csrf_failed
               - not_found
+              - method_not_allowed
               - conflict
               - slug_taken
               - payload_too_large
@@ -5527,7 +5562,11 @@ components:
               additionalProperties:
                 type: string
                 maxLength: 300
-              description: Per-field messages keyed by camelCase input field name (validation_error / slug_taken only).
+              description: 'Per-field messages (validation_error, slug_taken, conflict). Keys are **dot paths with numeric
+                indices**, identical to react-hook-form paths: `title`, `seo.description`, `packages.0.priceValue`, `packages.1.features.2`,
+                `deliverables.0.title`, `metrics.1.label`, `initialConditions.3`. An error about an array as a whole (count,
+                duplicates, more than one highlighted package) uses the array key (`metrics`, `tags`, `packages`). Errors
+                not tied to a field appear only in `message`.'
     PageMeta:
       type: object
       additionalProperties: false
@@ -5543,8 +5582,8 @@ components:
         pageSize:
           type: integer
           minimum: 1
-          maximum: 100
-          description: Items per page. Unpaginated lists return page=1 and pageSize = max(total,1).
+          description: Items per page. Unpaginated and limit-based lists return page=1, pageSize = max(number returned, 1)
+            and total = number returned. (The 100 cap applies only to the `pageSize` query parameter.)
         total:
           type: integer
           minimum: 0
@@ -5576,7 +5615,8 @@ components:
           - 'null'
           format: uri-reference
           maxLength: 500
-          description: Media URL (site-relative `/uploads/...` or absolute), or null.
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
+          description: Media URL (site-relative `/uploads/...` or absolute http(s)), or null. `""` is treated as null.
     ReorderInput:
       type: object
       additionalProperties: false
@@ -5647,21 +5687,24 @@ components:
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         linkedinUrl:
           type:
           - string
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         instagramUrl:
           type:
           - string
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         showTestimonials:
           type: boolean
           description: Render the homepage testimonial section (also hidden when no active testimonials).
@@ -5724,21 +5767,24 @@ components:
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         linkedinUrl:
           type:
           - string
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         instagramUrl:
           type:
           - string
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         showTestimonials:
           type: boolean
           description: Render the homepage testimonial section (also hidden when no active testimonials).
@@ -5783,9 +5829,12 @@ components:
           maxLength: 254
         whatsappNumber:
           type: string
-          maxLength: 20
-          pattern: ^\+[1-9][0-9]{7,14}$
-          description: E.164, e.g. +6282230109923. FE strips `+` for wa.me links.
+          minLength: 8
+          maxLength: 25
+          pattern: ^\+?[0-9][0-9 ()-]{6,23}[0-9]$
+          description: Phone/WhatsApp number as typed (e.g. `0812-3456-7890`). BE strips spaces, `(`, `)`, `-`; leading `0`
+            → `+62`, leading `62` → `+62`; the result must match `^\+[1-9][0-9]{7,14}$` (E.164) else 422 on this field. Stored
+            and returned as E.164.
         whatsappDisplay:
           type: string
           maxLength: 32
@@ -5803,24 +5852,27 @@ components:
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         linkedinUrl:
           type:
           - string
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
         instagramUrl:
           type:
           - string
           - 'null'
           format: uri
           maxLength: 500
-          description: Absolute URL or null.
+          pattern: ^https?://
+          description: Absolute http(s) URL or null (other schemes such as `javascript:` → 422). `""` is treated as null.
     SettingsTogglesInput:
       type: object
-      description: Partial update of homepage toggles. Allowed for admin and editor.
+      description: 'Partial update (PATCH semantics): absent key = unchanged; `{}` → 422. Allowed for admin and editor.'
       additionalProperties: false
       required: []
       minProperties: 1
@@ -5894,11 +5946,49 @@ components:
           maxItems: 12
         highlighted:
           type: boolean
-          description: Visually emphasised package (at most one recommended).
+          description: Visually emphasised package. At most one package per service may be highlighted (else 422 on `packages`).
         sortOrder:
           type: integer
           minimum: 1
-          description: Order within the service; array order on input is authoritative and overwrites this.
+          description: Order within the service (1..n, from the input array order).
+    ServicePackageInput:
+      type: object
+      description: Package as sent by the CMS. Order = array order; sortOrder is assigned by the BE.
+      additionalProperties: false
+      required:
+      - name
+      - priceLabel
+      - priceValue
+      - description
+      - features
+      - highlighted
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 60
+        priceLabel:
+          type: string
+          maxLength: 40
+          description: e.g. `Mulai dari`; may be empty.
+        priceValue:
+          type: string
+          minLength: 1
+          maxLength: 60
+          description: e.g. `Rp 3.500.000` or `Hubungi Kami`.
+        description:
+          type: string
+          maxLength: 300
+        features:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 120
+          maxItems: 12
+        highlighted:
+          type: boolean
+          description: Visually emphasised package. At most one package per service may be highlighted (else 422 on `packages`).
     Service:
       type: object
       description: Public service (list and detail share this shape).
@@ -6085,8 +6175,13 @@ components:
           description: RFC3339, UTC.
     ServiceInput:
       type: object
-      description: Create / full update. `slug` optional on create (generated from title). sortOrder is managed by POST (append)
-        and PUT /admin/services/order; packages are replaced as a whole.
+      description: 'Create / full update (full-object semantics). sortOrder is not part of the input: POST appends (max+1),
+        PUT /admin/services/order reorders. Packages are replaced as a whole. Slug rules: POST without `slug` (absent or `""`)
+        → BE uses slugify(title); if that slug is taken it appends `-2`, `-3`, … (never 409 for a generated slug); a title
+        that slugifies to empty → 422 on `title`. PUT without `slug` keeps the current slug (never regenerated). An explicitly
+        sent `slug` that is taken → 409 `slug_taken` with `fields.slug`. slugify: lowercase → Unicode NFKD and drop combining
+        marks → `&` becomes ` dan ` → every run of characters outside `[a-z0-9]` becomes `-` → trim `-` at both ends → cut
+        to 120 characters and trim a trailing `-`. Example: `AI & Teknologi` → `ai-dan-teknologi`.'
       additionalProperties: false
       required:
       - audience
@@ -6159,9 +6254,9 @@ components:
         packages:
           type: array
           items:
-            $ref: '#/components/schemas/ServicePackage'
+            $ref: '#/components/schemas/ServicePackageInput'
           maxItems: 8
-          description: Pricing packages (used by web-development); empty otherwise.
+          description: Replaces all packages of the service. Array order = display order.
         seo:
           $ref: '#/components/schemas/Seo'
         status:
@@ -6524,13 +6619,19 @@ components:
           description: RFC3339, UTC.
     CaseStudyInput:
       type: object
-      description: Create / full update. Setting featured=true while 2 other published case studies are featured → 409 conflict.
+      description: 'Create / full update (full-object semantics). Featured limit: when the saved row would be featured AND
+        published and 2 other published case studies are already featured → 409 `conflict` with `fields.featured` (checked
+        under an advisory lock). A featured draft is allowed; publishing it is checked. Slug rules: POST without `slug` (absent
+        or `""`) → BE uses slugify(title); if that slug is taken it appends `-2`, `-3`, … (never 409 for a generated slug);
+        a title that slugifies to empty → 422 on `title`. PUT without `slug` keeps the current slug (never regenerated). An
+        explicitly sent `slug` that is taken → 409 `slug_taken` with `fields.slug`. slugify: lowercase → Unicode NFKD and
+        drop combining marks → `&` becomes ` dan ` → every run of characters outside `[a-z0-9]` becomes `-` → trim `-` at
+        both ends → cut to 120 characters and trim a trailing `-`. Example: `AI & Teknologi` → `ai-dan-teknologi`.'
       additionalProperties: false
       required:
       - systemName
       - category
       - featured
-      - sortOrder
       - title
       - summary
       - cardBody
@@ -6571,6 +6672,7 @@ components:
         sortOrder:
           type: integer
           minimum: 0
+          description: 'Optional. Create: defaults to max+1. Update: omitted keeps the current value.'
         title:
           type: string
           minLength: 1
@@ -6727,12 +6829,15 @@ components:
           - 'null'
           format: uri-reference
           maxLength: 500
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
           description: 16:9 cover; null → FE renders the default brand cover.
         tags:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
           maxItems: 10
+          description: In editor-defined order (ArticleInput.tags order). tags[0] is the primary tag shown as the eyebrow/category
+            label.
         publishedAt:
           type: string
           format: date-time
@@ -6778,12 +6883,15 @@ components:
           - 'null'
           format: uri-reference
           maxLength: 500
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
           description: 16:9 cover; null → FE renders the default brand cover.
         tags:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
           maxItems: 10
+          description: In editor-defined order (ArticleInput.tags order). tags[0] is the primary tag shown as the eyebrow/category
+            label.
         publishedAt:
           type: string
           format: date-time
@@ -6890,12 +6998,15 @@ components:
           - 'null'
           format: uri-reference
           maxLength: 500
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
           description: 16:9 cover; null → FE renders the default brand cover.
         tags:
           type: array
           items:
             $ref: '#/components/schemas/Tag'
           maxItems: 10
+          description: In editor-defined order (ArticleInput.tags order). tags[0] is the primary tag shown as the eyebrow/category
+            label.
         readMinutes:
           type: integer
           minimum: 1
@@ -6929,7 +7040,12 @@ components:
           description: RFC3339, UTC.
     ArticleInput:
       type: object
-      description: Create / full update. `slug` optional (generated from title). readMinutes is computed.
+      description: 'Create / full update (full-object semantics). readMinutes is computed. Slug rules: POST without `slug`
+        (absent or `""`) → BE uses slugify(title); if that slug is taken it appends `-2`, `-3`, … (never 409 for a generated
+        slug); a title that slugifies to empty → 422 on `title`. PUT without `slug` keeps the current slug (never regenerated).
+        An explicitly sent `slug` that is taken → 409 `slug_taken` with `fields.slug`. slugify: lowercase → Unicode NFKD and
+        drop combining marks → `&` becomes ` dan ` → every run of characters outside `[a-z0-9]` becomes `-` → trim `-` at
+        both ends → cut to 120 characters and trim a trailing `-`. Example: `AI & Teknologi` → `ai-dan-teknologi`.'
       additionalProperties: false
       required:
       - title
@@ -6973,14 +7089,17 @@ components:
             minLength: 1
             maxLength: 60
           maxItems: 10
-          description: Tag names; unknown names are created (slug derived from name).
+          description: 'Tag names in display order (first = primary tag). Tags are resolved by derived slug: an existing tag
+            with the same slug is reused (its existing name wins), otherwise it is created. Duplicates within the payload
+            are dropped (first occurrence kept).'
         coverImageUrl:
           type:
           - string
           - 'null'
           format: uri-reference
           maxLength: 500
-          description: Media URL (site-relative `/uploads/...` or absolute), or null.
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
+          description: Media URL (site-relative `/uploads/...` or absolute http(s)), or null. `""` is treated as null.
         author:
           type: string
           maxLength: 120
@@ -7044,18 +7163,19 @@ components:
         startsAt:
           type: string
           format: date-time
-          description: RFC3339, UTC.
+          description: Inclusive start instant (UTC).
         endsAt:
           type: string
           format: date-time
-          description: RFC3339, UTC.
+          description: '**Exclusive** end instant (UTC). The CMS sends "Berakhir D" as (D+1) 00:00 +07:00 and displays `endsAt
+            − 1 s` in Asia/Jakarta.'
         status:
           $ref: '#/components/schemas/PromoStatus'
         service:
           oneOf:
           - $ref: '#/components/schemas/ServiceRef'
           - type: 'null'
-          description: Related service, or null.
+          description: 'Related service. Public: null when none, deleted, or not `published`. Admin: shown regardless of status.'
     PromoAdmin:
       type: object
       additionalProperties: false
@@ -7091,18 +7211,19 @@ components:
         startsAt:
           type: string
           format: date-time
-          description: RFC3339, UTC.
+          description: Inclusive start instant (UTC).
         endsAt:
           type: string
           format: date-time
-          description: RFC3339, UTC.
+          description: '**Exclusive** end instant (UTC). The CMS sends "Berakhir D" as (D+1) 00:00 +07:00 and displays `endsAt
+            − 1 s` in Asia/Jakarta.'
         status:
           $ref: '#/components/schemas/PromoStatus'
         service:
           oneOf:
           - $ref: '#/components/schemas/ServiceRef'
           - type: 'null'
-          description: Related service, or null.
+          description: 'Related service. Public: null when none, deleted, or not `published`. Admin: shown regardless of status.'
         serviceId:
           type:
           - string
@@ -7143,11 +7264,12 @@ components:
         startsAt:
           type: string
           format: date-time
-          description: RFC3339, UTC.
+          description: 'RFC3339 with any offset; stored/returned as UTC. CMS: "Mulai D" → D 00:00 +07:00.'
         endsAt:
           type: string
           format: date-time
-          description: Must be after startsAt (else 422).
+          description: 'Exclusive; must be after startsAt (else 422). RFC3339 with any offset. CMS: "Berakhir D" → (D+1) 00:00
+            +07:00.'
         code:
           type:
           - string
@@ -7283,7 +7405,9 @@ components:
           type: string
           format: uri-reference
           maxLength: 500
-          description: Media URL; uploads are site-relative, e.g. `/uploads/<random>.webp`.
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
+          description: 'Media URL: site-relative `/uploads/<random>.<ext>` (from POST /admin/media) or an absolute http(s)
+            URL.'
         sortOrder:
           type: integer
           minimum: 1
@@ -7310,7 +7434,9 @@ components:
           type: string
           format: uri-reference
           maxLength: 500
-          description: Media URL; uploads are site-relative, e.g. `/uploads/<random>.webp`.
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
+          description: 'Media URL: site-relative `/uploads/<random>.<ext>` (from POST /admin/media) or an absolute http(s)
+            URL.'
         sortOrder:
           type: integer
           minimum: 1
@@ -7338,7 +7464,9 @@ components:
           type: string
           format: uri-reference
           maxLength: 500
-          description: Media URL; uploads are site-relative, e.g. `/uploads/<random>.webp`.
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
+          description: 'Media URL: site-relative `/uploads/<random>.<ext>` (from POST /admin/media) or an absolute http(s)
+            URL.'
     LeadStatus:
       type: string
       enum:
@@ -7350,7 +7478,6 @@ components:
       additionalProperties: false
       required:
       - name
-      - company
       - email
       - whatsapp
       - message
@@ -7360,9 +7487,11 @@ components:
           minLength: 1
           maxLength: 120
         company:
-          type: string
-          minLength: 1
+          type:
+          - string
+          - 'null'
           maxLength: 160
+          description: Optional (B2C visitors may have none). `""` → null.
         email:
           type: string
           format: email
@@ -7370,9 +7499,11 @@ components:
         whatsapp:
           type: string
           minLength: 8
-          maxLength: 20
-          pattern: ^\+?[0-9 ()-]{8,20}$
-          description: Phone/WhatsApp number as typed; BE normalises.
+          maxLength: 25
+          pattern: ^\+?[0-9][0-9 ()-]{6,23}[0-9]$
+          description: Phone/WhatsApp number as typed (e.g. `0812-3456-7890`). BE strips spaces, `(`, `)`, `-`; leading `0`
+            → `+62`, leading `62` → `+62`; the result must match `^\+[1-9][0-9]{7,14}$` (E.164) else 422 on this field. Stored
+            and returned as E.164.
         service:
           type:
           - string
@@ -7393,7 +7524,8 @@ components:
         website:
           type: string
           maxLength: 200
-          description: Honeypot. Must be empty/absent. If filled, BE returns a fake 201 and stores nothing.
+          description: 'Honeypot. Must be empty/absent. Checked BEFORE validation: if non-empty, BE returns a fake 201 (random
+            id) and stores nothing; the request still counts toward the rate limit.'
     LeadCreated:
       type: object
       additionalProperties: false
@@ -7433,7 +7565,9 @@ components:
           type: string
           maxLength: 120
         company:
-          type: string
+          type:
+          - string
+          - 'null'
           maxLength: 160
         email:
           type: string
@@ -7442,6 +7576,8 @@ components:
         whatsapp:
           type: string
           maxLength: 20
+          pattern: ^\+[1-9][0-9]{7,14}$
+          description: E.164, e.g. +6281234567890. wa.me link = digits without `+`.
         serviceSlug:
           type:
           - string
@@ -7479,6 +7615,7 @@ components:
           description: RFC3339, UTC.
     LeadPatchInput:
       type: object
+      description: 'Partial update (PATCH semantics): absent key = unchanged; `{}` → 422.'
       additionalProperties: false
       required: []
       minProperties: 1
@@ -7490,6 +7627,7 @@ components:
           - string
           - 'null'
           maxLength: 5000
+          description: '`null` or `""` clears the notes.'
     MediaUpload:
       type: object
       additionalProperties: false
@@ -7505,7 +7643,9 @@ components:
           type: string
           format: uri-reference
           maxLength: 500
-          description: Media URL; uploads are site-relative, e.g. `/uploads/<random>.webp`.
+          pattern: ^(/uploads/[A-Za-z0-9._-]+|https?://.+)$
+          description: 'Media URL: site-relative `/uploads/<random>.<ext>` (from POST /admin/media) or an absolute http(s)
+            URL.'
         filename:
           type: string
           maxLength: 80
@@ -7520,8 +7660,7 @@ components:
         size:
           type: integer
           minimum: 1
-          maximum: 2097152
-          description: Bytes (max 2 MiB).
+          description: Bytes (max UPLOAD_MAX_BYTES, default 2 MiB).
         width:
           type: integer
           minimum: 1
@@ -7579,6 +7718,7 @@ components:
           description: RFC3339, UTC.
     LoginInput:
       type: object
+      description: Malformed email or password → 401 `unauthorized` (uniform, no oracle), not 422.
       additionalProperties: false
       required:
       - email
@@ -7591,7 +7731,7 @@ components:
         password:
           type: string
           minLength: 1
-          maxLength: 72
+          maxLength: 64
     UserCreateInput:
       type: object
       additionalProperties: false
@@ -7613,9 +7753,9 @@ components:
           $ref: '#/components/schemas/UserRole'
         password:
           type: string
-          minLength: 8
-          maxLength: 72
-          description: 8–72 characters (bcrypt limit).
+          minLength: 10
+          maxLength: 64
+          description: 10–64 characters and at most 72 bytes UTF-8 (bcrypt limit); otherwise 422.
     UserUpdateInput:
       type: object
       description: Full update. Changing your own role or deactivating yourself → 409.
@@ -7646,9 +7786,9 @@ components:
       properties:
         password:
           type: string
-          minLength: 8
-          maxLength: 72
-          description: 8–72 characters (bcrypt limit).
+          minLength: 10
+          maxLength: 64
+          description: 10–64 characters and at most 72 bytes UTF-8 (bcrypt limit); otherwise 422.
     DashboardSummary:
       type: object
       additionalProperties: false

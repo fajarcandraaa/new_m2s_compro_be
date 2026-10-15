@@ -9,7 +9,9 @@ Companion to `api/openapi.yaml`. Column names are snake_case; the API maps them 
 - Enums: `text` + `CHECK (... IN (...))` instead of `CREATE TYPE`, so adding a value later is a one-line migration.
 - Slugs: `text NOT NULL UNIQUE` with `CHECK (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')`.
 - Text length limits are enforced in Go validation (they mirror `maxLength` in the OpenAPI spec). The DB only has `CHECK`s that protect integrity: enums, slug format, non-empty required names, date order.
-- Nullable in the DB = nullable in the API. Optional strings that the seed has as `""` (maps/linkedin/instagram URL) are stored as `NULL`.
+- Nullable in the DB = nullable in the API. For every nullable text column the app trims the value and stores `""` as `NULL`, including the seed's empty maps/linkedin/instagram URLs.
+- Slugs: when a slug is generated, the app runs `SELECT 1 FROM <table> WHERE slug = $1` and tries `-2`, `-3`, … until it finds a free one. A unique violation on an explicitly sent slug → 409 `slug_taken`. The slugify rule is written in the OpenAPI `ServiceInput` description: lowercase → NFKD and drop marks → `&` becomes `dan` → non-`[a-z0-9]` runs become `-` → trim → max 120.
+- Phone numbers (`leads.whatsapp`, `settings.whatsapp_number`) are stored in E.164 (`+62…`), normalised in Go before INSERT/UPDATE.
 - Visibility rules live in SQL `WHERE` clauses, not views:
   - public content: `status = 'published'`
   - public articles additionally need `published_at <= now()`
@@ -23,7 +25,7 @@ Companion to `api/openapi.yaml`. Column names are snake_case; the API maps them 
 | `services.deliverables` (`[{title, body}]`) | `jsonb` array of objects | Same reasons. |
 | `case_studies.metrics` (exactly 2 `{value,label}`), `scope`, `initial_conditions`, `risks`, `approach`, `solutions`, `impacts` | `jsonb` arrays | The CMS edits each list as one textarea (one point per line), so it is replaced as a whole on every save. |
 | `service_packages` | **child table** | Packages are named entities with their own price, highlight flag, sort order and feature list. They are likely to be referenced later (promo per package, per-package CTA). On a service PUT they are replaced as a whole in the same transaction (`DELETE ... WHERE service_id = $1` then INSERT). `features` inside a package is `jsonb`. |
-| Article tags | **join table** `article_tags` | We filter by tag (`?tag=`), count per tag and find related articles. All of that needs relational queries. |
+| Article tags | **join table** `article_tags` (with `position`) | We filter by tag (`?tag=`), count per tag and find related articles. All of that needs relational queries. `position` keeps the editor's order, and the first tag is the primary label. |
 
 Every `jsonb` column has `NOT NULL DEFAULT '[]'::jsonb` and `CHECK (jsonb_typeof(col) = 'array')`. Element shape is validated in Go before writing.
 
@@ -52,7 +54,7 @@ Indexes: `users_email_lower_uq UNIQUE (lower(email))`.
 | legal_name | text | NOT NULL |
 | tagline | text | NOT NULL DEFAULT '' |
 | email | text | NOT NULL |
-| whatsapp_number | text | NOT NULL (E.164) |
+| whatsapp_number | text | NOT NULL, E.164, `CHECK (whatsapp_number ~ '^\+[1-9][0-9]{7,14}$')` |
 | whatsapp_display | text | NOT NULL DEFAULT '' |
 | whatsapp_greeting | text | NOT NULL DEFAULT '' |
 | address | text | NOT NULL DEFAULT '' |
@@ -117,13 +119,20 @@ Indexes: `service_packages_service_idx (service_id, sort_order)`.
 | created_at, updated_at | timestamptz | NOT NULL DEFAULT now() |
 
 Indexes: `case_studies_status_sort_idx (status, sort_order)`.
-"At most 2 published case studies are featured" is checked in the service layer inside the write transaction (`SELECT count(*) ... FOR UPDATE`) and returns 409. It is not a DB constraint, because an exact-count rule cannot be expressed as one.
+"At most 2 published case studies are featured" is checked in the write transaction (create/update), and only when the saved row would be `featured AND status = 'published'`. A featured draft is allowed; publishing it is checked.
+
+The check runs these steps:
+1. `SELECT pg_advisory_xact_lock(hashtext('case_studies_featured'))`. This serialises concurrent writers; `FOR UPDATE` cannot be used with aggregates and would not stop the race anyway.
+2. `SELECT count(*) FROM case_studies WHERE featured AND status = 'published' AND id <> $1`.
+3. If the count is 2 or more → 409 `conflict` with `fields.featured`.
+
+It is not a DB constraint, because an exact-count rule cannot be expressed as one.
 
 ### `tags`
 | Column | Type | Constraints |
 |---|---|---|
 | id | uuid | PK |
-| slug | text | NOT NULL UNIQUE, slug CHECK (derived from name: lowercase, `&` dropped, non-alphanumerics → `-`) |
+| slug | text | NOT NULL UNIQUE, slug CHECK (derived from the name with the shared slugify rule; `AI & Teknologi` → `ai-dan-teknologi`) |
 | name | text | NOT NULL; unique index on `lower(name)` |
 | created_at | timestamptz | NOT NULL DEFAULT now() |
 
@@ -154,8 +163,15 @@ Indexes:
 |---|---|---|
 | article_id | uuid | FK → `articles(id)` **ON DELETE CASCADE** |
 | tag_id | uuid | FK → `tags(id)` **ON DELETE CASCADE** |
+| position | smallint | NOT NULL DEFAULT 0. 0-based index from `ArticleInput.tags`; responses order tags by `position`. |
 
-PK `(article_id, tag_id)`. Index `article_tags_tag_idx (tag_id, article_id)`. Orphan tags are kept on purpose: the tag picker keeps suggesting them, and they show `articleCount = 0`.
+PK `(article_id, tag_id)`. Index `article_tags_tag_idx (tag_id, article_id)`.
+
+Tags are resolved by derived slug inside the article transaction:
+1. Dedupe names by slug, keeping the first occurrence.
+2. `INSERT INTO tags (slug, name) SELECT ... ON CONFLICT (slug) DO NOTHING`. If a tag with that slug already exists, its name is kept.
+3. `SELECT id, slug FROM tags WHERE slug = ANY($1)`.
+4. Replace the `article_tags` rows with the new positions. Orphan tags are kept on purpose: the tag picker keeps suggesting them, and they show `articleCount = 0`.
 
 Related articles query, used by `GET /articles/{slug}/related`:
 `SELECT a.*, count(*) shared FROM article_tags t1 JOIN article_tags t2 ON t2.tag_id = t1.tag_id AND t2.article_id <> t1.article_id JOIN articles a ON a.id = t2.article_id WHERE t1.article_id = $1 AND <visible> GROUP BY a.id ORDER BY shared DESC, a.published_at DESC LIMIT $2`.
@@ -173,6 +189,8 @@ Related articles query, used by `GET /articles/{slug}/related`:
 | created_at, updated_at | timestamptz | NOT NULL DEFAULT now() |
 
 Indexes: `promos_ends_idx (ends_at)`, `promos_starts_idx (starts_at DESC)`.
+The public read joins `services` with `status = 'published'`, so a promo whose service is a draft shows `service: null`. The admin read joins regardless of status.
+`ends_at` is **exclusive**. The CMS sends "Berakhir D" as (D+1) 00:00 +07:00.
 There is no status column. Status is computed on every read (`CASE WHEN now() < starts_at THEN 'upcoming' WHEN now() < ends_at THEN 'active' ELSE 'ended' END`), so it can never go stale.
 
 ### `testimonials`
@@ -205,15 +223,15 @@ Index: `client_logos_sort_idx (sort_order)`. Deleting a logo row does not delete
 |---|---|---|
 | id | uuid | PK |
 | name | text | NOT NULL |
-| company | text | NOT NULL |
+| company | text | NULL (optional; B2C visitors may have none) |
 | email | text | NOT NULL |
-| whatsapp | text | NOT NULL |
+| whatsapp | text | NOT NULL, E.164 (normalised in Go) |
 | service_slug | text | NULL. A snapshot of the slug at submit time, with **no FK**, so a lead survives service deletion or renaming. The API joins `services` on slug for `serviceTitle` (null if gone). |
 | start_timeframe | text | NULL |
 | message | text | NOT NULL |
 | status | text | NOT NULL DEFAULT 'new', `CHECK (status IN ('new','contacted','done'))` |
 | notes | text | NULL |
-| ip_hash | text | NULL. sha256(IP + JWT_SECRET), for abuse investigation only. Never exposed in the API or the CSV. |
+| ip_hash | text | NULL. hex(HMAC-SHA256(key = JWT_SECRET, client IP)), for abuse investigation only. Never exposed in the API or the CSV. |
 | user_agent | text | NULL (truncated to 300 characters, not exposed) |
 | created_at, updated_at | timestamptz | NOT NULL DEFAULT now() |
 
@@ -225,7 +243,7 @@ Indexes: `leads_created_idx (created_at DESC)`, `leads_status_created_idx (statu
 - **Rate-limit counters**: kept in memory per process, which is enough for a single BE instance.
 
 ## Search (`q`)
-`ILIKE '%' || $q || '%'` on the columns listed per endpoint in the OpenAPI spec. Escape `%`, `_` and `\` in `q`. Data volumes are tiny, so there are no trigram indexes.
+`ILIKE '%' || $q || '%'` on the columns listed per endpoint in the OpenAPI spec.  Reorderable admin lists (services, testimonials, client logos) are unpaginated and take no `q`. Escape `%`, `_` and `\` in `q`. Data volumes are tiny, so there are no trigram indexes.
 
 ## Goose migration plan
 
@@ -237,7 +255,7 @@ Indexes: `leads_created_idx (created_at DESC)`, `leads_status_created_idx (statu
 | 2 | `00002_settings.sql` | `settings` singleton |
 | 3 | `00003_services.sql` | `services`, `service_packages` + indexes |
 | 4 | `00004_case_studies.sql` | `case_studies` + index |
-| 5 | `00005_articles.sql` | `tags`, `articles`, `article_tags` + indexes |
+| 5 | `00005_articles.sql` | `tags`, `articles`, `article_tags` (incl. `position`) + indexes |
 | 6 | `00006_promos.sql` | `promos` (FK to services) + indexes |
 | 7 | `00007_testimonials_client_logos.sql` | `testimonials`, `client_logos` + indexes |
 | 8 | `00008_leads.sql` | `leads` + indexes |
