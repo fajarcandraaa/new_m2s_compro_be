@@ -53,6 +53,8 @@ services:
       args:
         # Rewrites are resolved at build time in Next standalone output.
         BACKEND_URL: http://be:8080
+        # Inlined at build time (canonical URLs, robots/sitemap, OG, CMS SEO preview).
+        NEXT_PUBLIC_SITE_URL: ${SITE_URL:-http://localhost:3000}
     restart: unless-stopped
     depends_on:
       be:

@@ -92,7 +92,7 @@ docker compose up --build
 |---|---|---|---|
 | `postgres` | `postgres:16-alpine` | not published | volume `pgdata`; healthcheck `pg_isready` |
 | `be` | `build: .` (multi-stage → distroless static, nonroot) | `8080` | waits for healthy postgres; volume `uploads:/data/uploads`; `COOKIE_SECURE=false` |
-| `fe` | `../new_m2s_compro_fe` with build arg `BACKEND_URL=http://be:8080` | `3000` | open http://localhost:3000 and http://localhost:3000/admin |
+| `fe` | `../new_m2s_compro_fe` with build args `BACKEND_URL=http://be:8080` and `NEXT_PUBLIC_SITE_URL=${SITE_URL}` | `3000` | open http://localhost:3000 and http://localhost:3000/admin |
 
 Inside compose, `DATABASE_URL` is built from `POSTGRES_*`, and `FRONTEND_URL` is `http://fe:3000`. The BE image has
 no shell, so `be` has no compose healthcheck. Use `GET /healthz` from outside instead.
@@ -116,7 +116,8 @@ Deploy the BE first; it runs migrations and the seed automatically. Then deploy 
 2. **Application (Dockerfile) from the FE repo**
    - Set a domain with HTTPS (Traefik).
    - Build arg **and** runtime env `BACKEND_URL=http://m2s-be:8080`.
-   - Set `SITE_URL=https://<domain>` and the same `REVALIDATE_SECRET` as the BE.
+   - Build arg `NEXT_PUBLIC_SITE_URL=https://<domain>` (inlined at build: canonical URLs, robots.txt, sitemap, OG).
+   - Runtime env `SITE_URL=https://<domain>` and the same `REVALIDATE_SECRET` as the BE.
 3. Backups: a scheduled `pg_dump` of the database, plus a copy of the `uploads` volume.
 
 ### Verify `TRUSTED_PROXY_HOPS` on the first deploy
