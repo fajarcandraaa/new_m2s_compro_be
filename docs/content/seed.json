@@ -1,0 +1,149 @@
+{
+  "_note": "Konten seed resmi (disetujui user). Artikel ada di articles.json. Testimoni & promo sengaja kosong.",
+  "settings": {
+    "company_name": "Mind2Screen",
+    "legal_name": "Mindtoscreen Technology Indonesia",
+    "tagline": "From Idea to Digital Reality",
+    "email": "hello@mindtoscreen.com",
+    "whatsapp_number": "+6282230109923",
+    "whatsapp_display": "+62 822-3010-9923",
+    "whatsapp_greeting": "Halo Mind2Screen, saya ingin berdiskusi tentang kebutuhan sistem.",
+    "address": "Jln. Terusan Segawe 5, Bandungrejosari, Sukun, Malang, Jawa Timur",
+    "maps_url": "",
+    "linkedin_url": "",
+    "instagram_url": "",
+    "show_testimonials": true,
+    "show_client_logos": false
+  },
+  "services": [
+    {
+      "slug": "custom-software-development",
+      "audience": "business",
+      "sort_order": 1,
+      "eyebrow": "Utama",
+      "title": "Custom Software Development",
+      "tagline": "Sistem internal yang tumbuh bersama bisnis Anda, bukan sistem yang menghambatnya.",
+      "summary": "Sistem internal yang disesuaikan dengan proses bisnis unik perusahaan Anda, bukan solusi generik.",
+      "points": ["Discovery & pemetaan proses bisnis", "HRIS, DMS, ERP internal, approval workflow", "Integrasi dengan sistem yang sudah ada", "Dokumentasi teknis & knowledge transfer"],
+      "price_label": "Model kerja",
+      "price_value": "BOS atau BOR",
+      "audience_text": "Perusahaan dengan proses bisnis yang kompleks, tim yang lelah dengan spreadsheet dan approval lewat chat, atau yang pernah gagal mengimplementasikan sistem internal.",
+      "deliverables": [
+        {"title": "Requirement discovery & business process mapping", "body": "Workshop dengan stakeholder untuk memetakan alur kerja dan memutuskan fitur mana yang paling penting."},
+        {"title": "HRIS, DMS, ERP internal, dan approval workflow", "body": "Modul dirancang terpisah tapi bisa saling terhubung, sehingga bisa ditambah bertahap."},
+        {"title": "Integrasi dengan sistem yang sudah ada", "body": "Third-party API, database lama, atau tools yang sudah dipakai tim Anda."},
+        {"title": "Dokumentasi teknis dan knowledge transfer", "body": "Supaya tim internal Anda bisa merawat dan mengembangkan sistem tanpa bergantung pada satu orang."}
+      ],
+      "systems": ["HRIS", "DMS", "Approval Workflow", "Internal Portal", "ERP Internal", "Dashboard KPI"],
+      "packages": []
+    },
+    {
+      "slug": "ui-ux-design", "audience": "business", "sort_order": 2, "eyebrow": "Desain", "title": "UI/UX Design",
+      "tagline": "Desain yang bekerja, bukan hanya yang terlihat cantik.",
+      "summary": "Antarmuka yang intuitif, dirancang dari riset dan konteks penggunaan nyata di lapangan.",
+      "points": ["User research & persona", "Wireframe dan prototipe interaktif", "Design system & high-fidelity mockup", "UX audit untuk produk yang sudah berjalan"],
+      "price_label": "Model kerja", "price_value": "Per proyek",
+      "audience_text": "Tim produk dan perusahaan yang ingin aplikasinya benar-benar dipakai, atau yang aplikasinya sudah berjalan tapi sering dikeluhkan pengguna.",
+      "deliverables": [
+        {"title": "User research & persona mapping", "body": "Wawancara dan observasi pengguna nyata untuk memahami konteks kerja mereka."},
+        {"title": "Wireframing dan prototyping interaktif", "body": "Alur divalidasi lebih dulu sebelum masuk desain visual."},
+        {"title": "Design system dan high-fidelity mockup", "body": "Komponen visual yang konsisten dan siap diserahkan ke developer."},
+        {"title": "UX audit", "body": "Evaluasi produk yang sudah ada beserta daftar perbaikan berdasarkan prioritas."}
+      ],
+      "systems": [], "packages": []
+    },
+    {
+      "slug": "data-analysis-processing", "audience": "business", "sort_order": 3, "eyebrow": "Data", "title": "Data Analysis & Processing",
+      "tagline": "Dari data mentah menjadi keputusan yang lebih baik.",
+      "summary": "Mengolah dan memvisualisasikan data operasional supaya keputusan bisnis lebih akurat.",
+      "points": ["Data audit & gap analysis", "ETL untuk konsolidasi data", "Dashboard & business intelligence", "Laporan sesuai kebutuhan eksekutif"],
+      "price_label": "Model kerja", "price_value": "Per proyek atau retainer",
+      "audience_text": "Manajemen yang datanya tersebar di banyak sumber dan laporan masih dirangkum manual setiap bulan.",
+      "deliverables": [
+        {"title": "Data audit & gap analysis", "body": "Memetakan data yang tersedia dibandingkan dengan data yang dibutuhkan untuk keputusan."},
+        {"title": "ETL pipeline", "body": "Konsolidasi data dari berbagai sumber ke satu tempat yang bisa dipercaya."},
+        {"title": "Dashboard pelaporan & business intelligence", "body": "KPI yang diperbarui otomatis untuk manajemen dan tiap divisi."},
+        {"title": "Custom reporting", "body": "Laporan yang disesuaikan dengan kebutuhan eksekutif dan operasional."}
+      ],
+      "systems": ["Dashboard KPI", "ETL", "Business Intelligence"], "packages": []
+    },
+    {
+      "slug": "it-consultant", "audience": "business", "sort_order": 4, "eyebrow": "Konsultasi", "title": "IT Consultant",
+      "tagline": "Keputusan teknologi yang tepat dimulai dari konsultasi yang tepat.",
+      "summary": "Perspektif independen untuk keputusan teknologi, dari audit sistem sampai roadmap digitalisasi.",
+      "points": ["IT audit & technology assessment", "Roadmap digitalisasi jangka menengah", "Evaluasi & seleksi vendor", "Pendampingan tim internal"],
+      "price_label": "Model kerja", "price_value": "Per sesi atau retainer",
+      "audience_text": "Perusahaan yang akan berinvestasi di sistem baru dan butuh pandangan independen sebelum memilih vendor atau arsitektur.",
+      "deliverables": [
+        {"title": "IT audit & technology assessment", "body": "Evaluasi sistem, infrastruktur, dan keamanan yang berjalan saat ini."},
+        {"title": "Roadmap digitalisasi", "body": "Rencana bertahap jangka menengah sampai panjang yang realistis dengan anggaran."},
+        {"title": "Evaluasi & seleksi vendor", "body": "Membandingkan vendor dan tools secara objektif sesuai kebutuhan bisnis."},
+        {"title": "Pendampingan & capacity building", "body": "Membekali tim internal supaya bisa mengambil keputusan teknologi sendiri."}
+      ],
+      "systems": [], "packages": []
+    },
+    {
+      "slug": "web-development", "audience": "personal", "sort_order": 5, "eyebrow": "Untuk usaha & personal", "title": "Web Development",
+      "tagline": "Website bukan sekadar tampilan. Ini representasi digital bisnis Anda.",
+      "summary": "Website yang fungsional, cepat, dan mudah dikelola. Harga sudah termasuk domain .com satu tahun dan maintenance 1–3 bulan.",
+      "points": ["Company profile & landing page", "Web application dengan integrasi API", "CMS untuk kelola konten", "Optimasi performa & SEO teknis"],
+      "price_label": "Mulai dari", "price_value": "Rp 3.500.000",
+      "audience_text": "Pemilik usaha, UMKM, dan profesional yang butuh website yang benar-benar bekerja, bukan sekadar online.",
+      "deliverables": [
+        {"title": "Company profile & landing page", "body": "Halaman yang jelas tujuannya dan mengarahkan pengunjung ke tindakan berikutnya."},
+        {"title": "Web application", "body": "Fitur interaktif dan integrasi API sesuai kebutuhan usaha."},
+        {"title": "CMS", "body": "Kelola artikel, promo, dan konten sendiri tanpa menghubungi developer."},
+        {"title": "Performa & SEO teknis", "body": "Core Web Vitals, kecepatan halaman, dan struktur yang mudah dibaca mesin pencari."}
+      ],
+      "systems": [],
+      "packages": [
+        {"name": "Starter", "price_label": "Mulai dari", "price_value": "Rp 3.500.000", "description": "Landing page atau company profile sederhana.", "features": ["Hingga 5 halaman", "Desain dari template brand", "Maintenance 1 bulan"], "highlighted": false, "sort_order": 1},
+        {"name": "Growth", "price_label": "", "price_value": "Hubungi Kami", "description": "Company profile dengan CMS untuk artikel dan promo.", "features": ["Hingga 10 halaman", "CMS konten", "Maintenance 2 bulan"], "highlighted": true, "sort_order": 2},
+        {"name": "Professional", "price_label": "", "price_value": "Hubungi Kami", "description": "Web app dengan fitur interaktif dan integrasi API.", "features": ["Fitur custom", "Integrasi API", "Maintenance 3 bulan"], "highlighted": false, "sort_order": 3},
+        {"name": "Corporate", "price_label": "", "price_value": "Hubungi Kami", "description": "Platform web kompleks dengan kebutuhan khusus.", "features": ["Discovery penuh", "Multi-bahasa & SEO teknis", "Dukungan prioritas"], "highlighted": false, "sort_order": 4}
+      ]
+    }
+  ],
+  "case_studies": [
+    {
+      "slug": "tumbuh-sistem-pertumbuhan-sdm", "system_name": "TUMBUH", "category": "HRIS", "featured": true, "sort_order": 1,
+      "title": "Ketika data karyawan tidak lagi bisa dipercaya",
+      "summary": "TUMBUH, sistem pertumbuhan SDM, dipakai sebagai alat kontrol dan visibilitas manajemen, bukan sekadar administrasi.",
+      "card_body": "Data HR dan Finance disatukan dalam satu sumber kebenaran, rekrutmen dan penilaian kinerja dipindah ke dalam sistem.",
+      "metrics": [{"value": "1", "label": "sumber data karyawan untuk HR dan Finance"}, {"value": "0", "label": "input data ganda antar divisi"}],
+      "scope": ["HRIS", "Rekrutmen", "Penilaian kinerja", "Dashboard manajemen"],
+      "initial_conditions_title": "Data tersebar, keputusan berbasis asumsi",
+      "initial_conditions": ["Data karyawan tidak sinkron antara tim HR dan bagian lainnya", "Tidak ada wadah terpusat untuk aspirasi dan feedback karyawan", "Proses rekrutmen tersebar di berbagai platform eksternal", "Kenaikan karier dan evaluasi kinerja dilakukan manual dan subjektif", "Manajemen kesulitan melihat kondisi kinerja organisasi secara menyeluruh"],
+      "risks_title": "Masalahnya tidak menghentikan bisnis, tapi menggiringnya ke keputusan yang salah",
+      "risks": ["Konflik internal antara HR dan Finance", "Kesalahan payroll dan perencanaan anggaran", "Turnover meningkat tanpa penyebab yang jelas", "Pengembangan talenta tidak terarah", "Keputusan bisnis berbasis asumsi, bukan data"],
+      "approach_title": "Memahami alur data dan keputusan sebelum membangun HRIS",
+      "approach": ["Memetakan siklus hidup karyawan dari onboarding hingga evaluasi", "Menyatukan data HR dan Finance dalam satu sumber kebenaran", "Merancang sistem aspirasi karyawan yang terstruktur", "Memindahkan rekrutmen ke dalam sistem internal", "Menjadikan kinerja dan jenjang karier terukur dan transparan"],
+      "solutions": ["Database karyawan terpusat", "Modul aspirasi dan feedback karyawan", "Sistem rekrutmen internal terintegrasi", "Tracking kinerja dan karier berbasis data", "Dashboard manajemen untuk monitoring kondisi organisasi"],
+      "impact_title": "Manajemen bisa memutuskan dengan tenang dan terukur",
+      "impacts": ["Data karyawan konsisten dan dapat dipercaya", "Risiko konflik internal menurun", "Karyawan merasa lebih didengar dan dihargai", "Keputusan diambil berdasarkan data, bukan asumsi"],
+      "lesson": "Sistem SDM yang tidak terkelola dengan baik tidak membuat bisnis berhenti, tetapi perlahan mengarahkannya ke keputusan yang salah."
+    },
+    {
+      "slug": "rapi-sistem-penataan-proses-dokumen", "system_name": "RAPI", "category": "DMS", "featured": true, "sort_order": 2,
+      "title": "Ketika sistem internal justru menghambat perubahan",
+      "summary": "RAPI, Document Management System yang adaptif, menggantikan aplikasi statis yang membuat setiap perubahan proses butuh perubahan kode.",
+      "card_body": "Alur dokumen dan approval dipindah ke konfigurasi, sehingga proses baru tidak lagi menunggu perubahan kode dari tim IT.",
+      "metrics": [{"value": "0", "label": "perubahan kode untuk alur approval baru"}, {"value": "1", "label": "jejak audit untuk tiap dokumen"}],
+      "scope": ["DMS", "Approval Workflow", "Arsip dokumen"],
+      "initial_conditions_title": "Aplikasi statis yang tidak bisa mengikuti bisnis",
+      "initial_conditions": ["Setiap penambahan data atau perubahan proses membutuhkan perubahan kode", "Workflow approval tidak fleksibel", "Performa aplikasi menurun seiring bertambahnya kompleksitas", "Sistem sulit mengikuti perubahan kebutuhan bisnis"],
+      "risks_title": "Sistem yang seharusnya membantu justru menjadi penghambat",
+      "risks": ["Setiap perubahan operasional membutuhkan waktu dan biaya tambahan", "Tim IT menjadi bottleneck", "Pengguna kembali ke proses manual", "Dokumentasi keputusan dan proses tidak terjaga dengan baik"],
+      "approach_title": "Masalahnya ada di arsitektur, bukan jumlah fitur",
+      "approach": ["Mendesain DMS berbasis konfigurasi, bukan hardcode", "Memisahkan struktur data dari logika aplikasi", "Menyusun sistem yang bisa berkembang tanpa perubahan kode berulang", "Mengoptimalkan performa sejak tahap desain arsitektur"],
+      "solutions": ["Struktur data dan workflow dinamis", "Sistem approval fleksibel", "Aplikasi yang menyesuaikan perubahan proses bisnis", "Performa stabil meski kompleksitas meningkat"],
+      "impact_title": "Perubahan operasional jadi cepat, tim IT kembali jadi enabler",
+      "impacts": ["Perubahan operasional menjadi lebih cepat dan efisien", "Sistem digunakan secara konsisten oleh tim", "Keputusan dan dokumen terdokumentasi dengan baik", "Tim IT kembali berperan sebagai enabler bisnis"],
+      "lesson": "Sistem internal yang baik harus mengikuti ritme bisnis, bukan memaksakan bisnis mengikuti sistem."
+    }
+  ],
+  "tags": ["Sistem Internal", "Keamanan Data", "AI & Teknologi"],
+  "testimonials": [],
+  "promos": [],
+  "client_logos": []
+}
