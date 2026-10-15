@@ -170,3 +170,25 @@ func TestTrimHelpers(t *testing.T) {
 		t.Error("TrimList(nil) must be empty, non-nil")
 	}
 }
+
+func TestStripHTML(t *testing.T) {
+	cases := map[string]string{
+		"Berapa lama?":                         "Berapa lama?",
+		"<b>Tebal</b> & <i>miring</i>":         "Tebal & miring",
+		"HRIS &amp; DMS":                       "HRIS & DMS",
+		"a < b dan c > d":                      "a < b dan c > d",
+		`<script>alert(1)</script>Aman`:        "Aman",
+		`<a href="javascript:x()">tautan</a>`:  "tautan",
+		"&lt;img src=x onerror=alert(1)&gt;ok": "ok",
+		"<p></p>":                              "",
+	}
+	for in, want := range cases {
+		got := StripHTML(in)
+		if got != want {
+			t.Errorf("StripHTML(%q) = %q, want %q", in, got, want)
+		}
+		if again := StripHTML(got); again != got {
+			t.Errorf("StripHTML not stable for %q: %q → %q", in, got, again)
+		}
+	}
+}

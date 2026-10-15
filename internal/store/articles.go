@@ -10,7 +10,7 @@ import (
 )
 
 const articleCols = `a.id, a.slug, a.status, a.title, a.excerpt, a.content_html, a.cover_image_url,
-	a.author, a.read_minutes, a.published_at, a.seo_title, a.seo_description, a.og_image_url,
+	a.author, a.read_minutes, a.published_at, a.faqs, a.seo_title, a.seo_description, a.og_image_url,
 	(a.status = 'published' AND a.published_at > now()) AS is_scheduled, a.created_at, a.updated_at`
 
 // visibleArticle is the public visibility condition.
@@ -19,8 +19,9 @@ const visibleArticle = "a.status = 'published' AND a.published_at <= now()"
 func scanArticle(row pgx.Row) (domain.Article, error) {
 	var v domain.Article
 	err := row.Scan(&v.ID, &v.Slug, &v.Status, &v.Title, &v.Excerpt, &v.ContentHTML, &v.CoverImageURL,
-		&v.Author, &v.ReadMinutes, &v.PublishedAt, &v.Seo.Title, &v.Seo.Description, &v.Seo.OgImageURL,
+		&v.Author, &v.ReadMinutes, &v.PublishedAt, &v.Faqs, &v.Seo.Title, &v.Seo.Description, &v.Seo.OgImageURL,
 		&v.IsScheduled, &v.CreatedAt, &v.UpdatedAt)
+	v.Faqs = nonNil(v.Faqs)
 	v.Tags = []domain.Tag{}
 	return v, err
 }
@@ -192,11 +193,11 @@ func (s *Store) SaveArticle(ctx context.Context, id string, v *domain.Article) (
 			return err
 		}
 		args := []any{slug, v.Status, v.Title, v.Excerpt, v.ContentHTML, v.CoverImageURL, v.Author,
-			v.ReadMinutes, v.PublishedAt, v.Seo.Title, v.Seo.Description, v.Seo.OgImageURL}
+			v.ReadMinutes, v.PublishedAt, v.Seo.Title, v.Seo.Description, v.Seo.OgImageURL, nonNil(v.Faqs)}
 		if id == "" {
 			err = tx.db.QueryRow(ctx, `INSERT INTO articles (slug, status, title, excerpt, content_html,
-				cover_image_url, author, read_minutes, published_at, seo_title, seo_description, og_image_url)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id::text`, args...).Scan(&savedID)
+				cover_image_url, author, read_minutes, published_at, seo_title, seo_description, og_image_url, faqs)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13) RETURNING id::text`, args...).Scan(&savedID)
 			if err != nil {
 				return fmt.Errorf("store: insert article: %w", err)
 			}
@@ -205,7 +206,7 @@ func (s *Store) SaveArticle(ctx context.Context, id string, v *domain.Article) (
 			tag, err := tx.db.Exec(ctx, `UPDATE articles SET slug = $1, status = $2, title = $3,
 				excerpt = $4, content_html = $5, cover_image_url = $6, author = $7, read_minutes = $8,
 				published_at = $9, seo_title = $10, seo_description = $11, og_image_url = $12,
-				updated_at = now() WHERE id = $13`, args...)
+				faqs = $13, updated_at = now() WHERE id = $14`, args...)
 			if err != nil {
 				return fmt.Errorf("store: update article: %w", err)
 			}

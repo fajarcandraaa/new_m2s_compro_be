@@ -58,6 +58,19 @@ type deliverableDTO struct {
 	Body  string `json:"body"`
 }
 
+type faqDTO struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
+func toFaqs(list []domain.Faq) []faqDTO {
+	out := make([]faqDTO, len(list))
+	for i, f := range list {
+		out[i] = faqDTO{Question: f.Question, Answer: f.Answer}
+	}
+	return out
+}
+
 type packageDTO struct {
 	Name        string   `json:"name"`
 	PriceLabel  string   `json:"priceLabel"`
@@ -83,6 +96,7 @@ type serviceDTO struct {
 	Deliverables []deliverableDTO `json:"deliverables"`
 	Systems      []string         `json:"systems"`
 	Packages     []packageDTO     `json:"packages"`
+	Faqs         []faqDTO         `json:"faqs"`
 	Seo          seoDTO           `json:"seo"`
 }
 
@@ -107,7 +121,7 @@ func toService(v *domain.Service) serviceDTO {
 		Tagline: v.Tagline, Summary: v.Summary, Points: strs(v.Points), PriceLabel: v.PriceLabel,
 		PriceValue: v.PriceValue, AudienceText: v.AudienceText, Systems: strs(v.Systems),
 		Deliverables: make([]deliverableDTO, len(v.Deliverables)), Packages: make([]packageDTO, len(v.Packages)),
-		Seo: toSeo(v.Seo),
+		Faqs: toFaqs(v.Faqs), Seo: toSeo(v.Seo),
 	}
 	for i, x := range v.Deliverables {
 		d.Deliverables[i] = deliverableDTO{Title: x.Title, Body: x.Body}
@@ -221,8 +235,9 @@ type articleSummaryDTO struct {
 
 type articleDTO struct {
 	articleSummaryDTO
-	ContentHTML string `json:"contentHtml"`
-	Seo         seoDTO `json:"seo"`
+	ContentHTML string   `json:"contentHtml"`
+	Faqs        []faqDTO `json:"faqs"`
+	Seo         seoDTO   `json:"seo"`
 }
 
 func toArticleSummary(v *domain.Article) articleSummaryDTO {
@@ -235,7 +250,8 @@ func toArticleSummary(v *domain.Article) articleSummaryDTO {
 }
 
 func toArticle(v *domain.Article) articleDTO {
-	return articleDTO{articleSummaryDTO: toArticleSummary(v), ContentHTML: v.ContentHTML, Seo: toSeo(v.Seo)}
+	return articleDTO{articleSummaryDTO: toArticleSummary(v), ContentHTML: v.ContentHTML, Faqs: toFaqs(v.Faqs),
+		Seo: toSeo(v.Seo)}
 }
 
 type articleAdminSummaryDTO struct {
@@ -266,6 +282,7 @@ type articleAdminDTO struct {
 	Author        string      `json:"author"`
 	PublishedAt   *httpx.Time `json:"publishedAt"`
 	ContentHTML   string      `json:"contentHtml"`
+	Faqs          []faqDTO    `json:"faqs"`
 	Seo           seoDTO      `json:"seo"`
 	Status        string      `json:"status"`
 	IsScheduled   bool        `json:"isScheduled"`
@@ -276,7 +293,7 @@ type articleAdminDTO struct {
 func toArticleAdmin(v *domain.Article) articleAdminDTO {
 	return articleAdminDTO{ID: v.ID, Slug: v.Slug, Title: v.Title, Excerpt: v.Excerpt,
 		CoverImageURL: v.CoverImageURL, Tags: toTags(v.Tags), ReadMinutes: v.ReadMinutes, Author: v.Author,
-		PublishedAt: httpx.TimePtr(v.PublishedAt), ContentHTML: v.ContentHTML, Seo: toSeo(v.Seo),
+		PublishedAt: httpx.TimePtr(v.PublishedAt), ContentHTML: v.ContentHTML, Faqs: toFaqs(v.Faqs), Seo: toSeo(v.Seo),
 		Status: v.Status, IsScheduled: v.IsScheduled, CreatedAt: httpx.Time(v.CreatedAt),
 		UpdatedAt: httpx.Time(v.UpdatedAt)}
 }

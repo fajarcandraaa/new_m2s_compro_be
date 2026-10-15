@@ -153,7 +153,25 @@ func ReadMinutes(contentHTML string) int {
 	return m
 }
 
-var ugc = bluemonday.UGCPolicy()
+var (
+	ugc    = bluemonday.UGCPolicy()
+	strict = bluemonday.StrictPolicy()
+)
 
 // SanitizeHTML sanitises rich text with the bluemonday UGC policy.
 func SanitizeHTML(s string) string { return ugc.Sanitize(s) }
+
+// StripHTML turns s into plain text: the bluemonday strict policy drops
+// every tag and the entities it emits are unescaped again (`&` stays `&`).
+// It repeats until the text is stable so that saving the result again
+// gives the same value (`&lt;b&gt;` must not come back as a tag).
+func StripHTML(s string) string {
+	for i := 0; i < 5; i++ {
+		out := html.UnescapeString(strict.Sanitize(s))
+		if out == s {
+			break
+		}
+		s = out
+	}
+	return s
+}
