@@ -116,6 +116,9 @@ func TestFeaturedCaseStudiesMaxTwo(t *testing.T) {
 	expect(t, res, 201)
 	third := decode[obj](t, res)
 	id := third["id"].(string)
+	if got := decode[obj](t, a.do("GET", "/api/v1/admin/case-studies/"+id, nil)); got["slug"] != "ketiga" || got["featured"] != true {
+		t.Fatalf("admin get case study: %v", got)
+	}
 	expectErr(t, a.do("PUT", "/api/v1/admin/case-studies/"+id, caseStudyBody("Ketiga", true, "published")), 409, "conflict", "featured")
 
 	// Un-feature a seeded one, then publishing works.
