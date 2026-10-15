@@ -61,6 +61,9 @@ func run() error {
 		}
 		slog.Info("seed done")
 	}
+	if cfg.FrontendURL == "" || cfg.RevalidateSecret == "" {
+		slog.Warn("FE revalidation disabled: FRONTEND_URL or REVALIDATE_SECRET is empty; CMS edits reach the site only after the 300 s ISR window")
+	}
 	if err := os.MkdirAll(cfg.UploadDir, 0o755); err != nil {
 		slog.Warn("upload dir not writable", "dir", cfg.UploadDir, "err", err.Error())
 	}

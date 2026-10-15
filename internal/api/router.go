@@ -70,8 +70,9 @@ func NewRouter(d Deps) http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(httpx.ClientIPMiddleware(d.Config.TrustedProxyHops))
-	r.Use(httpx.Recoverer)
+	// AccessLog wraps Recoverer so a recovered panic is still logged as a 500.
 	r.Use(httpx.AccessLog)
+	r.Use(httpx.Recoverer)
 	r.Use(middleware.Timeout(15 * time.Second))
 	r.NotFound(httpx.JSONNotFound)
 	r.MethodNotAllowed(httpx.JSONMethodNotAllowed)
