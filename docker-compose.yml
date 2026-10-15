@@ -1,0 +1,70 @@
+# Local stack: postgres + be (this repo) + fe (../new_m2s_compro_fe).
+# Usage: cp .env.example .env  (edit the secrets)  &&  docker compose up --build
+name: m2s
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-m2s}
+      POSTGRES_USER: ${POSTGRES_USER:-m2s}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  be:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      # POSTGRES_PASSWORD must be URL-safe here (or percent-encoded).
+      DATABASE_URL: postgres://${POSTGRES_USER:-m2s}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-m2s}?sslmode=disable
+      MIGRATE_ON_START: ${MIGRATE_ON_START:-true}
+      SEED_ON_START: ${SEED_ON_START:-true}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env (>= 32 chars)}
+      JWT_TTL: ${JWT_TTL:-12h}
+      COOKIE_SECURE: "false" # plain http on localhost
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      UPLOAD_DIR: /data/uploads
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2097152}
+      FRONTEND_URL: http://fe:3000
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set REVALIDATE_SECRET in .env}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/data/uploads
+    ports:
+      - "8080:8080" # for debugging; the browser goes through the FE
+
+  fe:
+    build:
+      context: ../new_m2s_compro_fe
+      args:
+        # Rewrites are resolved at build time in Next standalone output.
+        BACKEND_URL: http://be:8080
+    restart: unless-stopped
+    depends_on:
+      be:
+        condition: service_started # distroless BE has no shell for a healthcheck
+    environment:
+      BACKEND_URL: http://be:8080
+      SITE_URL: ${SITE_URL:-http://localhost:3000}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+
+volumes:
+  pgdata:
+  uploads:

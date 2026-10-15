@@ -1,0 +1,60 @@
+# Dokploy "Compose" application (postgres + be). The FE is a separate
+# Dokploy "Application" (Dockerfile) built from the FE repo.
+# Every ${VAR} is set in Dokploy's Environment UI; nothing secret lives here.
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-m2s}
+      POSTGRES_USER: ${POSTGRES_USER:-m2s}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - default
+
+  be:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://${POSTGRES_USER:-m2s}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-m2s}?sslmode=disable
+      MIGRATE_ON_START: "true"
+      SEED_ON_START: "true"
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_TTL: ${JWT_TTL:-12h}
+      COOKIE_SECURE: "true"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      UPLOAD_DIR: /data/uploads
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2097152}
+      FRONTEND_URL: ${FRONTEND_URL:?set FRONTEND_URL, e.g. http://<fe-service-name>:3000}
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET:?set REVALIDATE_SECRET}
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/data/uploads
+    networks:
+      default:
+      dokploy-network:
+        aliases:
+          - m2s-be # FE: BACKEND_URL=http://m2s-be:8080
+    # No public domain: the FE reaches the BE over dokploy-network.
+
+volumes:
+  pgdata:
+  uploads:
+
+networks:
+  dokploy-network:
+    external: true
