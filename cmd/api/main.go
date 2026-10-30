@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"log/slog"
 	"net/http"
 	"os"
@@ -22,7 +23,28 @@ import (
 	"github.com/fajarcandraaa/new_m2s_compro_be/internal/store"
 )
 
+// doHealthcheck is set by -healthcheck flag: probe /healthz and exit.
+var doHealthcheck = flag.Bool("healthcheck", false, "probe GET /healthz and exit (0=ok, 1=fail)")
+
 func main() {
+	flag.Parse()
+	if *doHealthcheck {
+		port := os.Getenv("PORT")
+		if port == "" {
+			port = "8080"
+		}
+		resp, err := http.Get("http://127.0.0.1:" + port + "/healthz") //nolint:noctx
+		if err != nil {
+			slog.Error("healthcheck", "err", err.Error())
+			os.Exit(1)
+		}
+		resp.Body.Close()
+		if resp.StatusCode != http.StatusOK {
+			slog.Error("healthcheck", "status", resp.Status)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
 	if err := run(); err != nil {
 		slog.Error("fatal", "err", err.Error())
 		os.Exit(1)

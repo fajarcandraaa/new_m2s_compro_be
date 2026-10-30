@@ -1,33 +1,18 @@
-# Dokploy "Compose" application (postgres + be). The FE is a separate
-# Dokploy "Application" (Dockerfile) built from the FE repo.
+# Dokploy "Compose" application for the backend only.
+# PostgreSQL is managed externally by infra on the overlay network
+# `app-database-network`; this file defines NO postgres service and exposes
+# NO database port to the public internet.
+#
 # Every ${VAR} is set in Dokploy's Environment UI; nothing secret lives here.
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-m2s}
-      POSTGRES_USER: ${POSTGRES_USER:-m2s}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 20
-    networks:
-      - default
-
   be:
     build: .
     restart: unless-stopped
-    depends_on:
-      postgres:
-        condition: service_healthy
     environment:
       PORT: "8080"
-      DATABASE_URL: postgres://${POSTGRES_USER:-m2s}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-m2s}?sslmode=disable
+      # Database connection string is provided by Dokploy env; no credentials
+      # are hardcoded or baked into the image.
+      DATABASE_URL: ${DATABASE_URL:?set DATABASE_URL, e.g. postgres://user:pass@mindtoscreen-apppostgresql-bewo3d:5432/mindtoscreen_db?sslmode=disable}
       MIGRATE_ON_START: "true"
       SEED_ON_START: "true"
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
@@ -45,16 +30,26 @@ services:
     volumes:
       - uploads:/data/uploads
     networks:
-      default:
+      app-database-network: {}   # external overlay; reaches infra PostgreSQL by service hostname
       dokploy-network:
         aliases:
-          - m2s-be # FE: BACKEND_URL=http://m2s-be:8080
-    # No public domain: the FE reaches the BE over dokploy-network.
+          - m2s-be               # FE: BACKEND_URL=http://m2s-be:8080
+    # Resource limits per infra team decision (Swarm service labels).
+    deploy:
+      mode: replicated
+      replicas: 1
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+        reservations:
+          memory: 64M
 
 volumes:
-  pgdata:
   uploads:
 
 networks:
+  app-database-network:
+    external: true
   dokploy-network:
     external: true

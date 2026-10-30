@@ -1,0 +1,51 @@
+# Local stack using the existing kelolakru-postgres container on the host.
+# Usage: docker compose -f docker-compose.local.yml up --build
+# Postgres is NOT managed here — kelolakru-postgres on host:5433 is used instead.
+name: m2s
+
+services:
+  be:
+    build: .
+    restart: unless-stopped
+    environment:
+      PORT: "8080"
+      DATABASE_URL: postgres://postgres:secret@host.docker.internal:5433/m2s?sslmode=disable
+      MIGRATE_ON_START: "true"
+      SEED_ON_START: "true"
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_TTL: ${JWT_TTL:-12h}
+      COOKIE_SECURE: "false"
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@mindtoscreen.com}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_NAME: ${ADMIN_NAME:-Admin}
+      UPLOAD_DIR: /data/uploads
+      UPLOAD_MAX_BYTES: ${UPLOAD_MAX_BYTES:-2097152}
+      FRONTEND_URL: http://fe:3000
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      TRUSTED_PROXY_HOPS: "1"
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - uploads:/data/uploads
+    ports:
+      - "8080:8080"
+
+  fe:
+    build:
+      context: ../new_m2s_compro_fe
+      args:
+        BACKEND_URL: http://be:8080
+        NEXT_PUBLIC_SITE_URL: http://localhost:3000
+        NEXT_PUBLIC_GA_ID: ${NEXT_PUBLIC_GA_ID:-}
+    restart: unless-stopped
+    depends_on:
+      - be
+    environment:
+      BACKEND_URL: http://be:8080
+      SITE_URL: http://localhost:3000
+      REVALIDATE_SECRET: ${REVALIDATE_SECRET}
+      PORT: "3000"
+    ports:
+      - "3000:3000"
+
+volumes:
+  uploads:

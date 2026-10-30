@@ -21,4 +21,8 @@ ENV PORT=8080 \
 EXPOSE 8080
 VOLUME ["/data/uploads"]
 USER 65532:65532
+# distroless/static-debian12 has no shell/wget, so the healthcheck must use
+# the binary's built-in -healthcheck flag (GET 127.0.0.1:8080/healthz).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD ["/app/api", "-healthcheck"]
 ENTRYPOINT ["/app/api"]
