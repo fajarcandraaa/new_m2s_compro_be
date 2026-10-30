@@ -65,6 +65,10 @@ type seedFile struct {
 			Highlighted bool     `json:"highlighted"`
 			SortOrder   int      `json:"sort_order"`
 		} `json:"packages"`
+		Faqs []struct {
+			Question string `json:"question"`
+			Answer   string `json:"answer"`
+		} `json:"faqs"`
 	} `json:"services"`
 	CaseStudies []struct {
 		Slug       string `json:"slug"`
@@ -108,7 +112,8 @@ type seedArticle struct {
 func strPtr(s string) *string { return &s }
 
 // Run seeds every empty table from content (docs/content/seed.json and
-// articles.json) in one transaction.
+// articles.json) in one transaction, and backfills service FAQs that are
+// still empty.
 func Run(ctx context.Context, st *store.Store, content fs.FS, admin Admin) error {
 	var sf seedFile
 	if err := readJSON(content, "docs/content/seed.json", &sf); err != nil {
@@ -208,11 +213,15 @@ func seedSettings(ctx context.Context, tx *store.Store, sf *seedFile) error {
 	return nil
 }
 
+// seedServices creates the services when the table is empty. On an
+// existing database it only backfills FAQs (contract v1.1) into services
+// whose faqs are still [], so admin edits are never overwritten.
 func seedServices(ctx context.Context, tx *store.Store, sf *seedFile) error {
-	ok, err := empty(ctx, tx, "services")
-	if err != nil || !ok {
+	fresh, err := empty(ctx, tx, "services")
+	if err != nil {
 		return err
 	}
+	backfilled := 0
 	for _, s := range sf.Services {
 		in := api.ServiceInput{
 			Slug: s.Slug, Audience: s.Audience, Eyebrow: s.Eyebrow, Title: s.Title, Tagline: s.Tagline,
@@ -226,14 +235,36 @@ func seedServices(ctx context.Context, tx *store.Store, sf *seedFile) error {
 			in.Packages = append(in.Packages, api.PackageInput{Name: p.Name, PriceLabel: p.PriceLabel,
 				PriceValue: p.PriceValue, Description: p.Description, Features: p.Features, Highlighted: p.Highlighted})
 		}
+		for _, f := range s.Faqs {
+			in.Faqs = append(in.Faqs, api.FaqInput{Question: f.Question, Answer: f.Answer})
+		}
 		v, err := in.Validate(true)
 		if err != nil {
 			return fmt.Errorf("seed: service %s: %w", s.Slug, err)
+		}
+		if !fresh {
+			if len(v.Faqs) == 0 {
+				continue
+			}
+			done, err := tx.SetServiceFaqsIfEmpty(ctx, v.Slug, v.Faqs)
+			if err != nil {
+				return fmt.Errorf("seed: service %s faqs: %w", s.Slug, err)
+			}
+			if done {
+				backfilled++
+			}
+			continue
 		}
 		v.SortOrder = s.SortOrder
 		if _, err := tx.SaveService(ctx, "", v); err != nil {
 			return fmt.Errorf("seed: service %s: %w", s.Slug, err)
 		}
+	}
+	if !fresh {
+		if backfilled > 0 {
+			slog.Info("seed: service faqs backfilled", "count", backfilled)
+		}
+		return nil
 	}
 	slog.Info("seed: services created", "count", len(sf.Services))
 	return nil

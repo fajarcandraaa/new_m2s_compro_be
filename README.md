@@ -1,12 +1,12 @@
 # Mind2Screen Company Profile: Backend
 
 Go API for the Mind2Screen company-profile site and its CMS (`/admin` in the FE). It implements the
-frozen contract `api/openapi.yaml` (tag `contract-v1.0`), the data model in `docs/db-schema.md` and the
+contract `api/openapi.yaml` (v1.1.0, tag `contract-v1.1`; v1.0 was tag `contract-v1.0`), the data model in `docs/db-schema.md` and the
 architecture in `docs/architecture.md`.
 
 - Go 1.24, chi, pgx/v5, goose v3 (embedded SQL migrations), PostgreSQL 16
 - JWT (HS256) in the httpOnly cookie `m2s_session`, bcrypt, session-version revocation
-- bluemonday UGC sanitisation for article HTML; image uploads (JPEG/PNG/WebP, 2 MiB) served at `/uploads/*`
+- bluemonday UGC sanitisation for article HTML, strict (plain text) for FAQ items; image uploads (JPEG/PNG/WebP, 2 MiB) served at `/uploads/*`
 - Migrations and the idempotent seed run on start; the seed reads `docs/content/*.json`, which is embedded in the binary
 
 ## Layout
@@ -14,7 +14,7 @@ architecture in `docs/architecture.md`.
 ```
 cmd/api            entrypoint: config → pool → migrate → seed → router → graceful shutdown
 assets.go          //go:embed migrations/*.sql and docs/content/*.json
-migrations/        00001_users.sql … 00008_leads.sql (goose)
+migrations/        00001_users.sql … 00009_faqs.sql (goose)
 internal/config    env parsing and validation
 internal/db        pgxpool + goose runner
 internal/seed      idempotent seed (admin from ADMIN_*)
@@ -61,6 +61,9 @@ With `TEST_DATABASE_URL` set, the integration tests in `internal/api`:
 - validate every response against `api/openapi.yaml` with kin-openapi v0.135.0 (`openapi3filter.ValidateResponse`).
 
 Set `TEST_LOG=1` to see request logs while the tests run.
+
+Without a database, `TestSpecExamplesValid` still checks every request and response example in `api/openapi.yaml`
+against its schema.
 
 kin-openapi is pinned at v0.135.0: later releases require Go ≥ 1.25. The tests skip `doc.Validate()`, which
 fails on 3.1 `type: "null"` in that version.

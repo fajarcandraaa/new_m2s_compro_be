@@ -57,6 +57,13 @@ type Deliverable struct {
 	Body  string `json:"body"`
 }
 
+// Faq is one element of services.faqs / articles.faqs (jsonb). Both
+// fields are plain text.
+type Faq struct {
+	Question string `json:"question"`
+	Answer   string `json:"answer"`
+}
+
 // ServicePackage is a row of service_packages.
 type ServicePackage struct {
 	Name        string
@@ -86,6 +93,7 @@ type Service struct {
 	Deliverables []Deliverable
 	Systems      []string
 	Packages     []ServicePackage
+	Faqs         []Faq
 	Seo          Seo
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
@@ -150,6 +158,7 @@ type Article struct {
 	Author        string
 	ReadMinutes   int
 	PublishedAt   *time.Time
+	Faqs          []Faq
 	Seo           Seo
 	Tags          []Tag
 	IsScheduled   bool
