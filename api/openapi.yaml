@@ -3,11 +3,12 @@
 openapi: 3.1.0
 info:
   title: Mind2Screen Company Profile API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     REST API for the Mind2Screen company profile (public site + CMS).
 
     ## Changelog
+    - **1.2.0** (additive, non-breaking): `updatedAt` (RFC3339) on `ArticleSummary`, `Article`, `CaseStudySummary`, `CaseStudy` and `Service`, so consumers can derive accurate `lastmod` values for sitemaps.
     - **1.1.0** (additive, non-breaking): FAQ items for SEO/GEO (FAQPage JSON-LD). New schema `FaqItem`; `faqs` (max 10) is always present on `Service`, `ServiceAdmin`, `Article` and `ArticleAdmin` (`[]` when none) and optional on `ServiceInput` / `ArticleInput` (omitted → `[]`). List/summary schemas are unchanged.
     - **1.0.0**: initial frozen contract (`contract-v1.0`).
 
@@ -200,6 +201,7 @@ paths:
               example:
                 data:
                 - slug: custom-software-development
+                  updatedAt: '2026-10-15T03:30:00Z'
                   audience: business
                   sortOrder: 1
                   eyebrow: Utama
@@ -248,6 +250,7 @@ paths:
                     description: null
                     ogImageUrl: null
                 - slug: ui-ux-design
+                  updatedAt: '2026-10-15T03:30:00Z'
                   audience: business
                   sortOrder: 2
                   eyebrow: Desain
@@ -290,6 +293,7 @@ paths:
                     description: null
                     ogImageUrl: null
                 - slug: data-analysis-processing
+                  updatedAt: '2026-10-15T03:30:00Z'
                   audience: business
                   sortOrder: 3
                   eyebrow: Data
@@ -335,6 +339,7 @@ paths:
                     description: null
                     ogImageUrl: null
                 - slug: it-consultant
+                  updatedAt: '2026-10-15T03:30:00Z'
                   audience: business
                   sortOrder: 4
                   eyebrow: Konsultasi
@@ -377,6 +382,7 @@ paths:
                     description: null
                     ogImageUrl: null
                 - slug: web-development
+                  updatedAt: '2026-10-15T03:30:00Z'
                   audience: personal
                   sortOrder: 5
                   eyebrow: Untuk usaha & personal
@@ -490,6 +496,7 @@ paths:
                     $ref: '#/components/schemas/Service'
               example:
                 data:
+                  updatedAt: '2026-10-15T03:30:00Z'
                   slug: web-development
                   audience: personal
                   sortOrder: 5
@@ -617,6 +624,7 @@ paths:
               example:
                 data:
                 - slug: tumbuh-sistem-pertumbuhan-sdm
+                  updatedAt: '2026-10-15T03:30:00Z'
                   systemName: TUMBUH
                   category: HRIS
                   featured: true
@@ -637,6 +645,7 @@ paths:
                   - Penilaian kinerja
                   - Dashboard manajemen
                 - slug: rapi-sistem-penataan-proses-dokumen
+                  updatedAt: '2026-10-15T03:30:00Z'
                   systemName: RAPI
                   category: DMS
                   featured: true
@@ -686,6 +695,7 @@ paths:
                     $ref: '#/components/schemas/CaseStudy'
               example:
                 data:
+                  updatedAt: '2026-10-15T03:30:00Z'
                   slug: tumbuh-sistem-pertumbuhan-sdm
                   systemName: TUMBUH
                   category: HRIS
@@ -788,6 +798,7 @@ paths:
               example:
                 data:
                 - slug: ai-bisa-membuat-website-dalam-hitungan-menit-tapi-apakah-benar-semudah-itu
+                  updatedAt: '2026-10-15T03:30:00Z'
                   title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semudah Itu?
                   excerpt: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah hasilnya
                     benar-benar siap digunakan? Mari pahami realitanya sebelum Anda ikut terburu-buru.
@@ -799,6 +810,7 @@ paths:
                   readMinutes: 4
                   author: Tim Mind2Screen
                 - slug: data-ktp-bocor-itu-sebenarnya-dampaknya-apa
+                  updatedAt: '2026-10-15T03:30:00Z'
                   title: Data KTP Bocor Itu Sebenarnya Dampaknya Apa?
                   excerpt: Kebocoran data KTP sering dianggap sepele, padahal dampaknya bisa sangat serius. Dari penipuan
                     hingga pencurian identitas, kenali risiko nyata dan cara melindungi data pribadi Anda.
@@ -810,6 +822,7 @@ paths:
                   readMinutes: 7
                   author: Tim Mind2Screen
                 - slug: kenapa-jangan-klik-link-sembarangan-di-whatsapp
+                  updatedAt: '2026-10-15T03:30:00Z'
                   title: Kenapa Jangan Klik Link Sembarangan di WhatsApp
                   excerpt: Satu klik link mencurigakan di WhatsApp bisa membuka pintu bagi hacker untuk mengakses data pribadi
                     Anda. Pelajari bahaya di balik link palsu dan cara melindungi diri.
@@ -851,6 +864,7 @@ paths:
                     $ref: '#/components/schemas/Article'
               example:
                 data:
+                  updatedAt: '2026-10-15T03:30:00Z'
                   slug: ai-bisa-membuat-website-dalam-hitungan-menit-tapi-apakah-benar-semudah-itu
                   title: AI Bisa Membuat Website dalam Hitungan Menit. Tapi Apakah Benar Semudah Itu?
                   excerpt: Banyak iklan mengatakan membuat website dengan AI semudah mengetik satu kalimat. Tapi apakah hasilnya
@@ -1071,6 +1085,7 @@ paths:
               example:
                 data:
                 - slug: kenapa-jangan-klik-link-sembarangan-di-whatsapp
+                  updatedAt: '2026-10-15T03:30:00Z'
                   title: Kenapa Jangan Klik Link Sembarangan di WhatsApp
                   excerpt: Satu klik link mencurigakan di WhatsApp bisa membuka pintu bagi hacker untuk mengakses data pribadi
                     Anda. Pelajari bahaya di balik link palsu dan cara melindungi diri.
@@ -6292,6 +6307,7 @@ components:
       - packages
       - faqs
       - seo
+      - updatedAt
       properties:
         slug:
           type: string
@@ -6362,6 +6378,10 @@ components:
           description: FAQ items in editor order (rendered by the FE as FAQPage JSON-LD). Always present; `[]` when none.
         seo:
           $ref: '#/components/schemas/Seo'
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC3339, UTC.
     ServiceAdmin:
       type: object
       additionalProperties: false
@@ -6596,6 +6616,7 @@ components:
       - cardBody
       - metrics
       - scope
+      - updatedAt
       properties:
         slug:
           type: string
@@ -6643,6 +6664,10 @@ components:
             minLength: 1
             maxLength: 60
           maxItems: 12
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC3339, UTC.
     CaseStudy:
       type: object
       description: Public case-study detail.
@@ -6669,6 +6694,7 @@ components:
       - impacts
       - lesson
       - seo
+      - updatedAt
       properties:
         slug:
           type: string
@@ -6774,6 +6800,10 @@ components:
           description: Pelajaran.
         seo:
           $ref: '#/components/schemas/Seo'
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC3339, UTC.
     CaseStudyAdmin:
       type: object
       additionalProperties: false
@@ -7113,6 +7143,7 @@ components:
       - publishedAt
       - readMinutes
       - author
+      - updatedAt
       properties:
         slug:
           type: string
@@ -7153,6 +7184,10 @@ components:
         author:
           type: string
           maxLength: 120
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC3339, UTC.
     Article:
       type: object
       additionalProperties: false
@@ -7168,6 +7203,7 @@ components:
       - contentHtml
       - faqs
       - seo
+      - updatedAt
       properties:
         slug:
           type: string
@@ -7220,6 +7256,10 @@ components:
           description: FAQ items in editor order (rendered by the FE as FAQPage JSON-LD). Always present; `[]` when none.
         seo:
           $ref: '#/components/schemas/Seo'
+        updatedAt:
+          type: string
+          format: date-time
+          description: RFC3339, UTC.
     ArticleAdminSummary:
       type: object
       description: Row in the CMS article table.

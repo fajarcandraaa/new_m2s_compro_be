@@ -98,6 +98,7 @@ type serviceDTO struct {
 	Packages     []packageDTO     `json:"packages"`
 	Faqs         []faqDTO         `json:"faqs"`
 	Seo          seoDTO           `json:"seo"`
+	UpdatedAt    httpx.Time       `json:"updatedAt"`
 }
 
 type serviceAdminDTO struct {
@@ -105,7 +106,6 @@ type serviceAdminDTO struct {
 	serviceDTO
 	Status    string     `json:"status"`
 	CreatedAt httpx.Time `json:"createdAt"`
-	UpdatedAt httpx.Time `json:"updatedAt"`
 }
 
 func strs(s []string) []string {
@@ -121,7 +121,7 @@ func toService(v *domain.Service) serviceDTO {
 		Tagline: v.Tagline, Summary: v.Summary, Points: strs(v.Points), PriceLabel: v.PriceLabel,
 		PriceValue: v.PriceValue, AudienceText: v.AudienceText, Systems: strs(v.Systems),
 		Deliverables: make([]deliverableDTO, len(v.Deliverables)), Packages: make([]packageDTO, len(v.Packages)),
-		Faqs: toFaqs(v.Faqs), Seo: toSeo(v.Seo),
+		Faqs: toFaqs(v.Faqs), Seo: toSeo(v.Seo), UpdatedAt: httpx.Time(v.UpdatedAt),
 	}
 	for i, x := range v.Deliverables {
 		d.Deliverables[i] = deliverableDTO{Title: x.Title, Body: x.Body}
@@ -134,8 +134,8 @@ func toService(v *domain.Service) serviceDTO {
 }
 
 func toServiceAdmin(v *domain.Service) serviceAdminDTO {
-	return serviceAdminDTO{ID: v.ID, serviceDTO: toService(v), Status: v.Status,
-		CreatedAt: httpx.Time(v.CreatedAt), UpdatedAt: httpx.Time(v.UpdatedAt)}
+	return serviceAdminDTO{ID: v.ID, Status: v.Status,
+		CreatedAt: httpx.Time(v.CreatedAt), serviceDTO: toService(v)}
 }
 
 type metricDTO struct {
@@ -154,6 +154,7 @@ type caseStudySummaryDTO struct {
 	CardBody   string      `json:"cardBody"`
 	Metrics    []metricDTO `json:"metrics"`
 	Scope      []string    `json:"scope"`
+	UpdatedAt  httpx.Time  `json:"updatedAt"`
 }
 
 type caseStudyDTO struct {
@@ -176,13 +177,13 @@ type caseStudyAdminDTO struct {
 	caseStudyDTO
 	Status    string     `json:"status"`
 	CreatedAt httpx.Time `json:"createdAt"`
-	UpdatedAt httpx.Time `json:"updatedAt"`
 }
 
 func toCaseStudySummary(v *domain.CaseStudy) caseStudySummaryDTO {
 	d := caseStudySummaryDTO{Slug: v.Slug, SystemName: v.SystemName, Category: v.Category,
 		Featured: v.Featured, SortOrder: v.SortOrder, Title: v.Title, Summary: v.Summary,
-		CardBody: v.CardBody, Metrics: make([]metricDTO, len(v.Metrics)), Scope: strs(v.Scope)}
+		CardBody: v.CardBody, Metrics: make([]metricDTO, len(v.Metrics)), Scope: strs(v.Scope),
+		UpdatedAt: httpx.Time(v.UpdatedAt)}
 	for i, m := range v.Metrics {
 		d.Metrics[i] = metricDTO{Value: m.Value, Label: m.Label}
 	}
@@ -201,7 +202,7 @@ func toCaseStudy(v *domain.CaseStudy) caseStudyDTO {
 
 func toCaseStudyAdmin(v *domain.CaseStudy) caseStudyAdminDTO {
 	return caseStudyAdminDTO{ID: v.ID, caseStudyDTO: toCaseStudy(v), Status: v.Status,
-		CreatedAt: httpx.Time(v.CreatedAt), UpdatedAt: httpx.Time(v.UpdatedAt)}
+		CreatedAt: httpx.Time(v.CreatedAt)}
 }
 
 type tagDTO struct {
@@ -231,6 +232,7 @@ type articleSummaryDTO struct {
 	PublishedAt   httpx.Time `json:"publishedAt"`
 	ReadMinutes   int        `json:"readMinutes"`
 	Author        string     `json:"author"`
+	UpdatedAt     httpx.Time `json:"updatedAt"`
 }
 
 type articleDTO struct {
@@ -242,7 +244,7 @@ type articleDTO struct {
 
 func toArticleSummary(v *domain.Article) articleSummaryDTO {
 	d := articleSummaryDTO{Slug: v.Slug, Title: v.Title, Excerpt: v.Excerpt, CoverImageURL: v.CoverImageURL,
-		Tags: toTags(v.Tags), ReadMinutes: v.ReadMinutes, Author: v.Author}
+		Tags: toTags(v.Tags), ReadMinutes: v.ReadMinutes, Author: v.Author, UpdatedAt: httpx.Time(v.UpdatedAt)}
 	if v.PublishedAt != nil {
 		d.PublishedAt = httpx.Time(*v.PublishedAt)
 	}
