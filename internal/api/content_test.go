@@ -142,6 +142,18 @@ func TestFeaturedCaseStudiesMaxTwo(t *testing.T) {
 	if len(feat) != 2 {
 		t.Fatalf("featured public: %d", len(feat))
 	}
+	// Diagram sebelum/sesudah di kartu memakai field dari ringkasan.
+	for _, c := range feat {
+		if c["slug"] != "tumbuh-sistem-pertumbuhan-sdm" {
+			continue
+		}
+		if got, ok := c["initialConditions"].([]any); !ok || len(got) == 0 {
+			t.Fatalf("summary initialConditions: %v", c["initialConditions"])
+		}
+		if got, ok := c["solutions"].([]any); !ok || len(got) == 0 {
+			t.Fatalf("summary solutions: %v", c["solutions"])
+		}
+	}
 
 	// Metrics must be exactly 2.
 	bad := caseStudyBody("Metrik", false, "draft")
