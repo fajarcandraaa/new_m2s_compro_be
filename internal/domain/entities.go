@@ -101,8 +101,9 @@ type Service struct {
 
 // Metric is one case-study impact number (jsonb).
 type Metric struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
+	Value  string `json:"value"`
+	Label  string `json:"label"`
+	Before string `json:"before"`
 }
 
 // CaseStudy is a row of case_studies.

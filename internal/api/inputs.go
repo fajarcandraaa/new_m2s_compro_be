@@ -247,8 +247,9 @@ func (in *ServiceInput) Validate(creating bool) (*domain.Service, error) {
 // ---- case studies ----
 
 type MetricInput struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
+	Value  string `json:"value"`
+	Label  string `json:"label"`
+	Before string `json:"before"`
 }
 
 type CaseStudyInput struct {
@@ -304,10 +305,11 @@ func (in *CaseStudyInput) Validate(creating bool) (*domain.CaseStudy, error) {
 		v.Add("metrics", "Wajib berisi tepat 2 angka dampak.")
 	}
 	for i, m := range in.Metrics {
-		c.Metrics[i] = domain.Metric{Value: domain.Trim(m.Value), Label: domain.Trim(m.Label)}
+		c.Metrics[i] = domain.Metric{Value: domain.Trim(m.Value), Label: domain.Trim(m.Label), Before: domain.Trim(m.Before)}
 		if i < 2 {
 			v.Str(fmt.Sprintf("metrics.%d.value", i), c.Metrics[i].Value, true, 20)
 			v.Str(fmt.Sprintf("metrics.%d.label", i), c.Metrics[i].Label, true, 160)
+			v.Str(fmt.Sprintf("metrics.%d.before", i), c.Metrics[i].Before, false, 120)
 		}
 	}
 	v.StrList("scope", c.Scope, 12, 60)

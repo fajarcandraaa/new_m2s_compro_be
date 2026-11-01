@@ -139,8 +139,9 @@ func toServiceAdmin(v *domain.Service) serviceAdminDTO {
 }
 
 type metricDTO struct {
-	Value string `json:"value"`
-	Label string `json:"label"`
+	Value  string `json:"value"`
+	Label  string `json:"label"`
+	Before string `json:"before,omitempty"`
 }
 
 type caseStudySummaryDTO struct {
@@ -185,7 +186,7 @@ func toCaseStudySummary(v *domain.CaseStudy) caseStudySummaryDTO {
 		CardBody: v.CardBody, Metrics: make([]metricDTO, len(v.Metrics)), Scope: strs(v.Scope),
 		UpdatedAt: httpx.Time(v.UpdatedAt)}
 	for i, m := range v.Metrics {
-		d.Metrics[i] = metricDTO{Value: m.Value, Label: m.Label}
+		d.Metrics[i] = metricDTO{Value: m.Value, Label: m.Label, Before: m.Before}
 	}
 	return d
 }

@@ -80,8 +80,9 @@ type seedFile struct {
 		Summary    string `json:"summary"`
 		CardBody   string `json:"card_body"`
 		Metrics    []struct {
-			Value string `json:"value"`
-			Label string `json:"label"`
+			Value  string `json:"value"`
+			Label  string `json:"label"`
+			Before string `json:"before"`
 		} `json:"metrics"`
 		Scope                  []string `json:"scope"`
 		InitialConditionsTitle string   `json:"initial_conditions_title"`
@@ -285,7 +286,7 @@ func seedCaseStudies(ctx context.Context, tx *store.Store, sf *seedFile) error {
 			Status: domain.StatusPublished,
 		}
 		for _, m := range c.Metrics {
-			in.Metrics = append(in.Metrics, api.MetricInput{Value: m.Value, Label: m.Label})
+			in.Metrics = append(in.Metrics, api.MetricInput{Value: m.Value, Label: m.Label, Before: m.Before})
 		}
 		v, err := in.Validate(true)
 		if err != nil {

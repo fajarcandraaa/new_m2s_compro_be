@@ -6601,6 +6601,10 @@ components:
           type: string
           minLength: 1
           maxLength: 160
+        before:
+          type: string
+          maxLength: 120
+          description: 'Baseline (previous condition) shown as "Sebelumnya: …" under the label. Omitted → empty.'
     CaseStudySummary:
       type: object
       description: Case-study card (public list).
