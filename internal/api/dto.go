@@ -155,7 +155,14 @@ type caseStudySummaryDTO struct {
 	CardBody   string      `json:"cardBody"`
 	Metrics    []metricDTO `json:"metrics"`
 	Scope      []string    `json:"scope"`
-	UpdatedAt  httpx.Time  `json:"updatedAt"`
+
+	// Ringkasan ikut membawa isi diagram sebelum/sesudah di kartu studi kasus.
+	InitialConditionsTitle string   `json:"initialConditionsTitle"`
+	InitialConditions      []string `json:"initialConditions"`
+	Solutions              []string `json:"solutions"`
+	ImpactTitle            string   `json:"impactTitle"`
+
+	UpdatedAt httpx.Time `json:"updatedAt"`
 }
 
 type caseStudyDTO struct {
@@ -184,6 +191,8 @@ func toCaseStudySummary(v *domain.CaseStudy) caseStudySummaryDTO {
 	d := caseStudySummaryDTO{Slug: v.Slug, SystemName: v.SystemName, Category: v.Category,
 		Featured: v.Featured, SortOrder: v.SortOrder, Title: v.Title, Summary: v.Summary,
 		CardBody: v.CardBody, Metrics: make([]metricDTO, len(v.Metrics)), Scope: strs(v.Scope),
+		InitialConditionsTitle: v.InitialConditionsTitle, InitialConditions: strs(v.InitialConditions),
+		Solutions: strs(v.Solutions), ImpactTitle: v.ImpactTitle,
 		UpdatedAt: httpx.Time(v.UpdatedAt)}
 	for i, m := range v.Metrics {
 		d.Metrics[i] = metricDTO{Value: m.Value, Label: m.Label, Before: m.Before}

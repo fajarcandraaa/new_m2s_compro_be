@@ -644,6 +644,16 @@ paths:
                   - Rekrutmen
                   - Penilaian kinerja
                   - Dashboard manajemen
+                  initialConditionsTitle: Data tersebar, keputusan berbasis asumsi
+                  initialConditions:
+                  - Data karyawan tidak sinkron antara tim HR dan bagian lainnya
+                  - Tidak ada wadah terpusat untuk aspirasi dan feedback karyawan
+                  - Proses rekrutmen tersebar di berbagai platform eksternal
+                  solutions:
+                  - Database karyawan terpusat
+                  - Modul aspirasi dan feedback karyawan
+                  - Sistem rekrutmen internal terintegrasi
+                  impactTitle: Manajemen bisa memutuskan dengan tenang dan terukur
                 - slug: rapi-sistem-penataan-proses-dokumen
                   updatedAt: '2026-10-15T03:30:00Z'
                   systemName: RAPI
@@ -664,6 +674,16 @@ paths:
                   - DMS
                   - Approval Workflow
                   - Arsip dokumen
+                  initialConditionsTitle: Aplikasi statis yang tidak bisa mengikuti bisnis
+                  initialConditions:
+                  - Setiap penambahan data atau perubahan proses membutuhkan perubahan kode
+                  - Workflow approval tidak fleksibel
+                  - Performa aplikasi menurun seiring bertambahnya kompleksitas
+                  solutions:
+                  - Struktur data dan workflow dinamis
+                  - Sistem approval fleksibel
+                  - Aplikasi yang menyesuaikan perubahan proses bisnis
+                  impactTitle: Perubahan operasional jadi cepat, tim IT kembali jadi enabler
                 meta:
                   page: 1
                   pageSize: 2
@@ -6620,6 +6640,10 @@ components:
       - cardBody
       - metrics
       - scope
+      - initialConditionsTitle
+      - initialConditions
+      - solutions
+      - impactTitle
       - updatedAt
       properties:
         slug:
@@ -6668,6 +6692,28 @@ components:
             minLength: 1
             maxLength: 60
           maxItems: 12
+        initialConditionsTitle:
+          type: string
+          maxLength: 200
+        initialConditions:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 300
+          maxItems: 20
+          description: Kondisi awal untuk kolom "Sebelum".
+        solutions:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 300
+          maxItems: 20
+          description: Solusi untuk kolom "Sesudah".
+        impactTitle:
+          type: string
+          maxLength: 200
         updatedAt:
           type: string
           format: date-time
