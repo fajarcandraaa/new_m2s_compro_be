@@ -13,27 +13,30 @@ import (
 // once that status exists.
 const cutoffWhere = ` WHERE updated_at < $1 AND status <> ALL($2::text[])`
 
-// CountLeadsBeforeCutoff returns how many leads the retention job would delete.
-func (s *Store) CountLeadsBeforeCutoff(ctx context.Context, cutoff time.Time, exemptStatuses []string) (int64, error) {
+// PruneLeadsBeforeCutoff counts, and unless dryRun deletes, leads matching the
+// cutoff. Both statements run in one transaction so the reported candidate and
+// deleted counts refer to the same snapshot and a failure leaves nothing
+// half-applied.
+func (s *Store) PruneLeadsBeforeCutoff(ctx context.Context, cutoff time.Time, exemptStatuses []string, dryRun bool) (candidates, deleted int64, err error) {
 	if exemptStatuses == nil {
 		exemptStatuses = []string{}
 	}
-	var n int64
-	if err := s.db.QueryRow(ctx, `SELECT count(*) FROM leads`+cutoffWhere, cutoff, exemptStatuses).Scan(&n); err != nil {
-		return 0, fmt.Errorf("store: count leads before cutoff: %w", err)
-	}
-	return n, nil
-}
-
-// DeleteLeadsBeforeCutoff permanently deletes leads older than cutoff and
-// returns the number of deleted rows.
-func (s *Store) DeleteLeadsBeforeCutoff(ctx context.Context, cutoff time.Time, exemptStatuses []string) (int64, error) {
-	if exemptStatuses == nil {
-		exemptStatuses = []string{}
-	}
-	tag, err := s.db.Exec(ctx, `DELETE FROM leads`+cutoffWhere, cutoff, exemptStatuses)
+	err = s.Tx(ctx, func(tx *Store) error {
+		if err := tx.db.QueryRow(ctx, `SELECT count(*) FROM leads`+cutoffWhere, cutoff, exemptStatuses).Scan(&candidates); err != nil {
+			return fmt.Errorf("store: count leads before cutoff: %w", err)
+		}
+		if dryRun {
+			return nil
+		}
+		tag, err := tx.db.Exec(ctx, `DELETE FROM leads`+cutoffWhere, cutoff, exemptStatuses)
+		if err != nil {
+			return fmt.Errorf("store: delete leads before cutoff: %w", err)
+		}
+		deleted = tag.RowsAffected()
+		return nil
+	})
 	if err != nil {
-		return 0, fmt.Errorf("store: delete leads before cutoff: %w", err)
+		return 0, 0, err
 	}
-	return tag.RowsAffected(), nil
+	return candidates, deleted, nil
 }

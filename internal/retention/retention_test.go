@@ -226,3 +226,41 @@ func TestRetentionExemptsStatuses(t *testing.T) {
 		t.Fatal("exempted status must be kept")
 	}
 }
+
+func TestRetentionCutoffClampsMonthEnd(t *testing.T) {
+	needDB(t)
+	now := time.Date(2026, 3, 31, 3, 0, 0, 0, time.UTC)
+	// 31 Maret - 1 bulan = 28 Februari. updated_at tepat di cutoff tidak dihapus
+	// (perbandingan strictly before), yang sehari lebih lama dihapus.
+	createdAt := time.Date(2026, 1, 1, 3, 0, 0, 0, time.UTC)
+	onCutoff := insertLead(t, createdAt, time.Date(2026, 2, 28, 3, 0, 0, 0, time.UTC), "new")
+	before := insertLead(t, createdAt, time.Date(2026, 2, 27, 3, 0, 0, 0, time.UTC), "new")
+
+	res := mustRun(t, retention.Options{Months: 1, Now: now})
+
+	if !res.Cutoff.Equal(time.Date(2026, 2, 28, 3, 0, 0, 0, time.UTC)) {
+		t.Fatalf("cutoff = %s, want 2026-02-28T03:00:00Z", res.Cutoff)
+	}
+	if res.Deleted != 1 {
+		t.Fatalf("deleted = %d, want 1", res.Deleted)
+	}
+	if !leadExists(t, onCutoff) {
+		t.Fatal("lead at the cutoff must be kept")
+	}
+	if leadExists(t, before) {
+		t.Fatal("lead before the cutoff must be deleted")
+	}
+}
+
+func TestRetentionReturnsErrorWhenDatabaseFails(t *testing.T) {
+	needDB(t)
+	p, err := pgxpool.New(context.Background(), os.Getenv("TEST_DATABASE_URL"))
+	if err != nil {
+		t.Fatalf("open pool: %v", err)
+	}
+	p.Close() // query on a closed pool must surface as an error, not a silent no-op
+
+	if _, err := retention.Run(context.Background(), store.New(p), retention.Options{Months: 24}); err == nil {
+		t.Fatal("expected error from closed database")
+	}
+}

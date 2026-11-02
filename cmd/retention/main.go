@@ -19,14 +19,21 @@ import (
 
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
-	if err := run(); err != nil {
-		slog.Error("retention failed", "err", err.Error())
-		os.Exit(1)
-	}
+	os.Exit(run(os.Getenv))
 }
 
-func run() error {
-	cfg, err := config.LoadRetention(os.Getenv)
+// run returns the process exit code. Any config or database failure exits 1 so
+// the scheduler records the job as failed instead of success.
+func run(getenv func(string) string) int {
+	if err := execute(getenv); err != nil {
+		slog.Error("retention failed", "err", err.Error())
+		return 1
+	}
+	return 0
+}
+
+func execute(getenv func(string) string) error {
+	cfg, err := config.LoadRetention(getenv)
 	if err != nil {
 		return err
 	}

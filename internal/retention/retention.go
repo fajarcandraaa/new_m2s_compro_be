@@ -13,7 +13,7 @@ import (
 
 // Options controls one retention run.
 type Options struct {
-	// Months is the retention window. 0 disables the job.
+	// Months is the retention window in calendar months. 0 disables the job.
 	Months int
 	// DryRun counts candidates without deleting.
 	DryRun bool
@@ -42,20 +42,25 @@ func Run(ctx context.Context, st *store.Store, opts Options) (Result, error) {
 	if now.IsZero() {
 		now = time.Now()
 	}
-	cutoff := now.UTC().AddDate(0, -opts.Months, 0)
+	cutoff := SubtractMonths(now.UTC(), opts.Months)
 
-	candidates, err := st.CountLeadsBeforeCutoff(ctx, cutoff, opts.ExemptStatuses)
+	candidates, deleted, err := st.PruneLeadsBeforeCutoff(ctx, cutoff, opts.ExemptStatuses, opts.DryRun)
 	if err != nil {
-		return Result{}, fmt.Errorf("retention: count: %w", err)
+		return Result{}, fmt.Errorf("retention: prune: %w", err)
 	}
-	res := Result{Enabled: true, Cutoff: cutoff, Candidates: candidates}
-	if opts.DryRun {
-		return res, nil
+	return Result{Enabled: true, Cutoff: cutoff, Candidates: candidates, Deleted: deleted}, nil
+}
+
+// SubtractMonths moves t back by whole calendar months, clamping the day to the
+// last day of the target month (31 Mar - 1 month = 28 Feb, not 3 Mar). Using
+// calendar months keeps the cutoff aligned with the retention policy; fixed
+// 30-day or 730-day arithmetic would drift.
+func SubtractMonths(t time.Time, months int) time.Time {
+	y, m, d := t.Date()
+	target := time.Date(y, m-time.Month(months), 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+	lastDay := time.Date(target.Year(), target.Month()+1, 0, 0, 0, 0, 0, t.Location()).Day()
+	if d > lastDay {
+		d = lastDay
 	}
-	deleted, err := st.DeleteLeadsBeforeCutoff(ctx, cutoff, opts.ExemptStatuses)
-	if err != nil {
-		return res, fmt.Errorf("retention: delete: %w", err)
-	}
-	res.Deleted = deleted
-	return res, nil
+	return time.Date(target.Year(), target.Month(), d, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
 }

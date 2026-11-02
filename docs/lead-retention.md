@@ -7,6 +7,9 @@ proses API, supaya penghapusan tidak menambah latensi request dan bisa diulang t
 
 Baris `leads` dihapus bila `updated_at < now() - LEAD_RETENTION_MONTHS`.
 
+- Pengurangan memakai **bulan kalender** dengan pembatasan akhir bulan: 31 Maret − 1 bulan = 28
+  Februari (bukan 3 Maret seperti normalisasi tanggal Go), 31 Maret 2024 − 1 bulan = 29 Februari.
+  Tidak ada asumsi 30 hari atau 730 hari, jadi cutoff tidak bergeser seiring tahun kabisat.
 - `updated_at` adalah **waktu perubahan administratif terakhir** (admin mengubah status atau catatan),
   bukan waktu interaksi terakhir pelanggan. Lead yang sudah lama tidak di-follow up tapi baru
   di-update admin tetap dihitung baru.
@@ -28,17 +31,31 @@ menghapus apa pun. Ubah ke `false` hanya setelah langkah di bawah selesai.
 
 ## Prosedur sebelum penghapusan pertama di produksi
 
-Wajib dilakukan berurutan. Jangan melewati langkah backup.
+Wajib dilakukan berurutan. Jangan melewati langkah backup. `DRY_RUN=false` dan jadwal rutin **baru
+boleh diaktifkan setelah tim infra menyetujui jumlah kandidat dari dry-run production**.
 
-1. **Backup data lead.** Ekspor seluruh lead dari admin API (admin-only, CSV):
+1. **Backup data lead.** Ekspor seluruh lead dari admin API (admin-only, CSV, tanpa pagination):
 
    ```sh
    curl -fSs -b "m2s_session=<cookie admin>" \
      "https://<domain>/api/v1/admin/leads/export" -o leads-backup-$(date +%F).csv
    ```
 
-   Simpan file di luar container dan pastikan ukuran serta jumlah barisnya masuk akal.
-   Catatan: file CSV ini berisi data pribadi; simpan terbatas dan hapus setelah selesai.
+   Kolom CSV: `createdAt, name, company, email, whatsapp, service, startTimeframe, status, message,
+   notes, id, updatedAt`. `id` dan `updatedAt` disertakan agar setiap baris bisa dicocokkan dengan
+   database dan dengan cutoff job.
+
+   Verifikasi file sebelum lanjut:
+   - jumlah baris CSV (tanpa header) sama dengan `total` pada `GET /api/v1/admin/leads`;
+   - buka dengan spreadsheet atau `python3 -c 'import csv,sys; rows=list(csv.reader(open(sys.argv[1], encoding="utf-8-sig"))); print(len(rows)-1, rows[0])' leads-backup-*.csv`;
+   - pastikan kolom `updatedAt` terisi pada semua baris.
+
+   Simpan file di luar container, akses terbatas. Catatan: file ini berisi data pribadi; hapus setelah
+   persetujuan penghapusan selesai dan masa simpan backup berakhir.
+
+   Restore: belum ada endpoint import lead. Jika suatu saat perlu memulihkan, masukkan ulang secara
+   manual dari CSV (baris dengan `id` yang sama tidak akan bertabrakan karena PK uuid, tapi tanggal
+   harus diisi eksplisit, bukan `now()`). Uji prosedur ini di database lokal sebelum mengandalkannya.
 
 2. **Jalankan dry-run dan catat hasilnya.** Set `DRY_RUN=true`, lalu jalankan job. Log JSON berisi:
 
@@ -63,11 +80,18 @@ Wajib dilakukan berurutan. Jangan melewati langkah backup.
 LEAD_RETENTION_MONTHS=24 DRY_RUN=true /app/retention
 ```
 
-Exit code `0` saat sukses atau saat job dinonaktifkan, non-zero saat config tidak valid atau query
-database gagal. Semua log berbentuk JSON ke stdout agar terbaca di Dokploy.
+Exit code `0` hanya bila job selesai tanpa error, atau bila job dinonaktifkan (`LEAD_RETENTION_MONTHS=0`).
+Exit code `1` untuk config tidak valid, kegagalan koneksi, atau kegagalan query/transaksi — scheduler
+harus membacanya sebagai job gagal, bukan sukses. Semua log berbentuk JSON ke stdout.
 
-> Catatan gambar Docker: binary ini perlu ada di image (mis. `COPY --from=build /out/retention /app/retention`).
-> Perubahan `Dockerfile` produksi menunggu persetujuan tim infra.
+Penghitungan kandidat dan penghapusan berjalan dalam **satu transaksi**: angka `candidates` dan
+`deleted` berasal dari snapshot yang sama, dan bila `DELETE` gagal seluruh transaksi rollback.
+Beberapa instance job yang berjalan bersamaan tetap aman karena `DELETE` mengunci baris yang sama,
+tapi jadwalkan satu run per periode.
+
+Binary `/app/retention` sudah ikut dibangun di `Dockerfile` yang sama dengan API
+(`go build ./cmd/retention` lalu `COPY --from=build /out/retention /app/retention`); tidak ada image
+atau port tambahan.
 
 ## Pengecualian status di masa depan
 

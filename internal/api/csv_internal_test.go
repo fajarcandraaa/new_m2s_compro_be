@@ -13,10 +13,13 @@ func TestLeadsCSV(t *testing.T) {
 	slug := "web-development"
 	notes := "@catatan"
 	leads := []domain.Lead{
-		{CreatedAt: time.Date(2026, 10, 15, 10, 0, 0, 0, time.FixedZone("WIB", 7*3600)), Name: "=cmd|' /C calc'!A0",
+		{ID: "lead-1", CreatedAt: time.Date(2026, 10, 15, 10, 0, 0, 0, time.FixedZone("WIB", 7*3600)),
+			UpdatedAt: time.Date(2026, 10, 16, 3, 0, 0, 0, time.UTC), Name: "=cmd|' /C calc'!A0",
 			Email: "a@b.co", Whatsapp: "+6281234567890", ServiceSlug: &slug, ServiceTitle: &title, Status: "new",
 			Message: "Halo, \"kami\"\nbutuh web", Notes: &notes},
-		{CreatedAt: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC), Name: "-1", Email: "c@d.co", Whatsapp: "+14155552671",
+		{ID: "lead-2", CreatedAt: time.Date(2026, 10, 14, 0, 0, 0, 0, time.UTC),
+			UpdatedAt: time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC),
+			Name:      "-1", Email: "c@d.co", Whatsapp: "+14155552671",
 			ServiceSlug: &slug, Status: "done", Message: "\tTab"},
 	}
 	b, err := LeadsCSV(leads)
@@ -24,9 +27,9 @@ func TestLeadsCSV(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	want := "\xEF\xBB\xBFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes\r\n" +
-		"2026-10-15T03:00:00Z,'=cmd|' /C calc'!A0,,a@b.co,'+6281234567890,Web Development,,new,\"Halo, \"\"kami\"\"\r\nbutuh web\",'@catatan\r\n" +
-		"2026-10-14T00:00:00Z,'-1,,c@d.co,'+14155552671,web-development,,done,'\tTab,\r\n"
+	want := "\xEF\xBB\xBFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes,id,updatedAt\r\n" +
+		"2026-10-15T03:00:00Z,'=cmd|' /C calc'!A0,,a@b.co,'+6281234567890,Web Development,,new,\"Halo, \"\"kami\"\"\r\nbutuh web\",'@catatan,lead-1,2026-10-16T03:00:00Z\r\n" +
+		"2026-10-14T00:00:00Z,'-1,,c@d.co,'+14155552671,web-development,,done,'\tTab,,lead-2,2026-10-15T00:00:00Z\r\n"
 	if s != want {
 		t.Fatalf("csv mismatch:\n got %q\nwant %q", s, want)
 	}

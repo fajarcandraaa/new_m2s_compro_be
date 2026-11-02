@@ -8,12 +8,14 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api \
+    && go build -trimpath -ldflags="-s -w" -o /out/retention ./cmd/retention \
     && mkdir -p /out/data/uploads
 
 # ---- runtime ----
 FROM gcr.io/distroless/static-debian12:nonroot
 WORKDIR /app
 COPY --from=build /out/api /app/api
+COPY --from=build /out/retention /app/retention
 # The uploads volume must be writable by the nonroot uid 65532.
 COPY --from=build --chown=65532:65532 /out/data /data
 ENV PORT=8080 \
