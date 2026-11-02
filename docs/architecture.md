@@ -154,6 +154,8 @@ Any error or non-2xx is logged at `warn` and never blocks the response. If `FRON
 | `REVALIDATE_SECRET` | — | Shared secret for `/api/revalidate`; empty disables revalidation |
 | `TRUSTED_PROXY_HOPS` | `1` | Position of the client IP counted from the right of `X-Forwarded-For` (algorithm in §3). Next.js only sets XFF when it is absent; it does not append. So 1 is expected both locally and on Dokploy (Traefik appends the client). **Verify on the first Dokploy deploy** with the `LOG_LEVEL=debug` IP log line. Used for rate limiting and `ip_hash`. |
 | `LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error` |
+| `LEAD_RETENTION_MONTHS` | `24` | `cmd/retention` saja: jendela retensi lead berdasarkan `updated_at`; `0` menonaktifkan job. Lihat `docs/lead-retention.md` |
+| `DRY_RUN` | `true` | `cmd/retention` saja: `true` hanya menghitung kandidat, tidak menghapus |
 
 ### Frontend
 | Name | Default | Purpose |
