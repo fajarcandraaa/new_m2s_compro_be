@@ -166,7 +166,7 @@ func TestLeadAdminFlowAndExport(t *testing.T) {
 		t.Fatalf("content disposition: %s", cd)
 	}
 	body := res.Body.String()
-	if !strings.HasPrefix(body, "\xEF\xBB\xBFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes\r\n") {
+	if !strings.HasPrefix(body, "\xEF\xBB\xBFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes,id,updatedAt,serviceSlug\r\n") {
 		t.Fatalf("csv header: %q", body[:120])
 	}
 	if !strings.Contains(body, `"'=HYPERLINK(""x"")"`) || !strings.Contains(body, "'+6281234567890") ||

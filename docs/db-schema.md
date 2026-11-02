@@ -240,6 +240,8 @@ Index: `client_logos_sort_idx (sort_order)`. Deleting a logo row does not delete
 
 Indexes: `leads_created_idx (created_at DESC)`, `leads_status_created_idx (status, created_at DESC)`.
 
+`updated_at` hanya berubah saat admin mem-patch status atau catatan (`PATCH /admin/leads/{id}`). Nilainya **bukan** waktu interaksi terakhir pelanggan, dan tetap sama dengan `created_at` selama lead belum pernah dipatch. Job retensi memakai kolom ini sebagai dasar cutoff — lihat `docs/lead-retention.md`.
+
 ### Not stored
 - **Sessions**: the JWT is stateless. Revocation uses `users.session_version` and `is_active`, which the auth middleware checks with one PK lookup per admin request.
 - **Media**: there is no media table. Files live in `UPLOAD_DIR`, and entities store the URL.

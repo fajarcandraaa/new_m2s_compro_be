@@ -5115,7 +5115,7 @@ paths:
       x-roles:
       - admin
       description: |-
-        Admin only (bulk personal data). Same filters as the list, unpaginated, ordered by createdAt desc. `Content-Type: text/csv; charset=utf-8`, UTF-8 with BOM (Excel), CRLF line endings, RFC 4180 quoting. Columns in order: `createdAt, name, company, email, whatsapp, service, startTimeframe, status, message, notes` (header row uses these names). `createdAt` is RFC3339 UTC; `service` = service title, falling back to the slug, empty if none. Cells starting with `= + - @ \t \r` are prefixed with `'` (CSV injection guard).
+        Admin only (bulk personal data). Same filters as the list, unpaginated, ordered by createdAt desc. `Content-Type: text/csv; charset=utf-8`, UTF-8 with BOM (Excel), CRLF line endings, RFC 4180 quoting. Columns in order: `createdAt, name, company, email, whatsapp, service, startTimeframe, status, message, notes, id, updatedAt, serviceSlug` (header row uses these names). `createdAt` and `updatedAt` are RFC3339 UTC; `service` = service title, falling back to the slug, empty if none; `serviceSlug` is the raw slug stored on the lead (needed to restore a deleted row). Cells starting with `= + - @ \t \r` are prefixed with `'` (CSV injection guard); strip that one leading quote when restoring a row. `ip_hash` and `user_agent` are intentionally not exported.
 
         Roles: admin.
       parameters:
@@ -5138,9 +5138,9 @@ paths:
             text/csv:
               schema:
                 type: string
-              example: "\uFEFFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes\r\n2026-10-15T04:12:09Z,Budi\
-                \ Santoso,PT Contoh Sejahtera,budi@contoh.co.id,+6281234567890,Custom Software Development,1–3 bulan lagi,new,Kami\
-                \ ingin memindahkan pengajuan cuti dan lembur dari spreadsheet ke sistem internal.,\r\n"
+              example: "\uFEFFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes,id,updatedAt,serviceSlug\r\n2026-10-15T04:12:09Z,Budi\
+                \ Santoso,PT Contoh Sejahtera,budi@contoh.co.id,'+6281234567890,Custom Software Development,1–3 bulan lagi,new,Kami\
+                \ ingin memindahkan pengajuan cuti dan lembur dari spreadsheet ke sistem internal.,,6f1c2b9a-1d5e-4c7a-9b3f-2a8d4e6f0c11,2026-10-15T04:12:09Z,custom-software-development\r\n"
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
