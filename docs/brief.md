@@ -3,7 +3,7 @@
 Owner: Senior Project Manager. Dokumen ini adalah sumber konteks utama untuk Tech Lead, Backend Engineer, dan Frontend Engineer. Baca seluruhnya sebelum mulai.
 
 ## 1. Produk
-Situs company profile baru untuk **Mind2Screen** (legal: Mindtoscreen Technology Indonesia, Malang), partner pembuatan sistem internal B2B (HRIS, DMS, portal internal, sistem custom), plus layanan Web Development untuk usaha & personal (B2C, sekunder).
+Situs company profile baru untuk **Mind2Screen** (legal: CV Mindtoscreen Technology Indonesia, Malang), partner pembuatan sistem internal B2B (HRIS, DMS, portal internal, sistem custom), plus layanan Web Development untuk usaha & personal (B2C, sekunder).
 
 Terdiri dari:
 1. **Situs publik** (Bahasa Indonesia saja; struktur siap untuk EN nanti, tapi jangan bangun i18n sekarang).

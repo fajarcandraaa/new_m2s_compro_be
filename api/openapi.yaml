@@ -154,7 +154,7 @@ paths:
               example:
                 data:
                   companyName: Mind2Screen
-                  legalName: Mindtoscreen Technology Indonesia
+                  legalName: CV Mindtoscreen Technology Indonesia
                   tagline: From Idea to Digital Reality
                   email: hello@mindtoscreen.com
                   whatsappNumber: '+6282230109923'
@@ -1584,7 +1584,7 @@ paths:
               example:
                 data:
                   companyName: Mind2Screen
-                  legalName: Mindtoscreen Technology Indonesia
+                  legalName: CV Mindtoscreen Technology Indonesia
                   tagline: From Idea to Digital Reality
                   email: hello@mindtoscreen.com
                   whatsappNumber: '+6282230109923'
@@ -1620,7 +1620,7 @@ paths:
               $ref: '#/components/schemas/SettingsInput'
             example:
               companyName: Mind2Screen
-              legalName: Mindtoscreen Technology Indonesia
+              legalName: CV Mindtoscreen Technology Indonesia
               tagline: From Idea to Digital Reality
               email: hello@mindtoscreen.com
               whatsappNumber: '+6282230109923'
@@ -1649,7 +1649,7 @@ paths:
               example:
                 data:
                   companyName: Mind2Screen
-                  legalName: Mindtoscreen Technology Indonesia
+                  legalName: CV Mindtoscreen Technology Indonesia
                   tagline: From Idea to Digital Reality
                   email: hello@mindtoscreen.com
                   whatsappNumber: '+6282230109923'
@@ -1712,7 +1712,7 @@ paths:
               example:
                 data:
                   companyName: Mind2Screen
-                  legalName: Mindtoscreen Technology Indonesia
+                  legalName: CV Mindtoscreen Technology Indonesia
                   tagline: From Idea to Digital Reality
                   email: hello@mindtoscreen.com
                   whatsappNumber: '+6282230109923'
