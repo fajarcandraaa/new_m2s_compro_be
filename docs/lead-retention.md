@@ -42,8 +42,10 @@ boleh diaktifkan setelah tim infra menyetujui jumlah kandidat dari dry-run produ
    ```
 
    Kolom CSV: `createdAt, name, company, email, whatsapp, service, startTimeframe, status, message,
-   notes, id, updatedAt`. `id` dan `updatedAt` disertakan agar setiap baris bisa dicocokkan dengan
-   database dan dengan cutoff job.
+   notes, id, updatedAt, serviceSlug`. `id`, `updatedAt`, dan `serviceSlug` disertakan agar setiap
+   baris bisa dicocokkan dengan database, dengan cutoff job, dan bisa dimasukkan ulang tanpa menebak
+   layanan. `ip_hash` dan `user_agent` sengaja tidak diekspor (dipakai internal untuk investigasi
+   penyalahgunaan), jadi baris hasil restore akan mengosongkan dua kolom itu.
 
    Verifikasi file sebelum lanjut:
    - jumlah baris CSV (tanpa header) sama dengan `total` pada `GET /api/v1/admin/leads`;
@@ -55,7 +57,10 @@ boleh diaktifkan setelah tim infra menyetujui jumlah kandidat dari dry-run produ
 
    Restore: belum ada endpoint import lead. Jika suatu saat perlu memulihkan, masukkan ulang secara
    manual dari CSV (baris dengan `id` yang sama tidak akan bertabrakan karena PK uuid, tapi tanggal
-   harus diisi eksplisit, bukan `now()`). Uji prosedur ini di database lokal sebelum mengandalkannya.
+   harus diisi eksplisit, bukan `now()`). Sel yang diawali `'` karena guard CSV injection harus
+   dibuang satu kutipnya bila karakter setelahnya `= + - @ \t \r`. Prosedur ini diuji di database
+   test: `TestLeadCSVExportRestoreRoundTrip` (export → hapus → restore → bandingkan semua kolom,
+   termasuk ID, timestamp, Unicode, dan notes dengan newline/koma/kutip).
 
 2. **Jalankan dry-run dan catat hasilnya.** Set `DRY_RUN=true`, lalu jalankan job. Log JSON berisi:
 

@@ -106,7 +106,7 @@ func LeadsCSV(leads []domain.Lead) ([]byte, error) {
 	buf.WriteString("\xEF\xBB\xBF") // UTF-8 BOM for Excel
 	cw := csv.NewWriter(&buf)
 	cw.UseCRLF = true
-	header := []string{"createdAt", "name", "company", "email", "whatsapp", "service", "startTimeframe", "status", "message", "notes", "id", "updatedAt"}
+	header := []string{"createdAt", "name", "company", "email", "whatsapp", "service", "startTimeframe", "status", "message", "notes", "id", "updatedAt", "serviceSlug"}
 	if err := cw.Write(header); err != nil {
 		return nil, err
 	}
@@ -117,7 +117,7 @@ func LeadsCSV(leads []domain.Lead) ([]byte, error) {
 		}
 		row := []string{l.CreatedAt.UTC().Format(time.RFC3339), l.Name, deref(l.Company), l.Email, l.Whatsapp,
 			service, deref(l.StartTimeframe), l.Status, l.Message, deref(l.Notes),
-			l.ID, l.UpdatedAt.UTC().Format(time.RFC3339)}
+			l.ID, l.UpdatedAt.UTC().Format(time.RFC3339), deref(l.ServiceSlug)}
 		for i := range row {
 			row[i] = csvSafe(row[i])
 		}

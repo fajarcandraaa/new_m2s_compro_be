@@ -27,9 +27,9 @@ func TestLeadsCSV(t *testing.T) {
 		t.Fatal(err)
 	}
 	s := string(b)
-	want := "\xEF\xBB\xBFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes,id,updatedAt\r\n" +
-		"2026-10-15T03:00:00Z,'=cmd|' /C calc'!A0,,a@b.co,'+6281234567890,Web Development,,new,\"Halo, \"\"kami\"\"\r\nbutuh web\",'@catatan,lead-1,2026-10-16T03:00:00Z\r\n" +
-		"2026-10-14T00:00:00Z,'-1,,c@d.co,'+14155552671,web-development,,done,'\tTab,,lead-2,2026-10-15T00:00:00Z\r\n"
+	want := "\xEF\xBB\xBFcreatedAt,name,company,email,whatsapp,service,startTimeframe,status,message,notes,id,updatedAt,serviceSlug\r\n" +
+		"2026-10-15T03:00:00Z,'=cmd|' /C calc'!A0,,a@b.co,'+6281234567890,Web Development,,new,\"Halo, \"\"kami\"\"\r\nbutuh web\",'@catatan,lead-1,2026-10-16T03:00:00Z,web-development\r\n" +
+		"2026-10-14T00:00:00Z,'-1,,c@d.co,'+14155552671,web-development,,done,'\tTab,,lead-2,2026-10-15T00:00:00Z,web-development\r\n"
 	if s != want {
 		t.Fatalf("csv mismatch:\n got %q\nwant %q", s, want)
 	}
